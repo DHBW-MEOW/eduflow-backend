@@ -5,7 +5,9 @@ use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
 
-use super::{DBInterface, User};
+use crate::crypt::crypt_types::{CryptI32, CryptString};
+
+use super::{DBInterface, TestDummy, User};
 
 pub struct SqliteDatabase {
     pool: Arc<Pool<SqliteConnectionManager>>,
@@ -46,11 +48,23 @@ impl SqliteDatabase {
             [],
         )?;
 
+        // dummy table
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS dummy (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                number BLOB NOT NULL,
+                text BLOB NOT NULL
+            )",
+        [],
+        )?;
+
         Ok(())
     }
 }
 
 impl DBInterface for SqliteDatabase {
+    // user related
     fn get_user_by_username(&self, username: &str) -> Result<User, Box<dyn Error>> {
         let conn = self.get_conn()?;
     
@@ -75,5 +89,30 @@ impl DBInterface for SqliteDatabase {
         
         debug!("Created new user");
         Ok(())
+    }
+    
+    // dummy related
+    fn new_dummy(&self, name: &str, number: &CryptI32, text: &CryptString) -> Result<(), Box<dyn Error>> {
+        let conn = self.get_conn()?;
+
+        let sql =  "INSERT INTO dummy (name, number, text) VALUES (?1, ?2, ?3)";
+        conn.execute(sql, params![name, number.data_crypt, text.data_crypt])?;
+
+        Ok(())
+    }
+    
+    fn get_dummy(&self, id: i32) -> Result<super::TestDummy, Box<dyn Error>> {
+        let conn = self.get_conn()?;
+        let sql = "SELECT d.id, d.name, d.number, d.text FROM dummy d WHERE d.id = ?1";
+        let dummy = conn.query_row(sql, params![id], |row| {
+            Ok(TestDummy{
+                id: row.get(0)?,
+                name: row.get(1)?,
+                secret_number: CryptI32 { data_crypt: row.get(2)? },
+                secret_text: CryptString { data_crypt: row.get(3)? },
+            })
+        })?;
+
+        Ok(dummy)
     }
 }
