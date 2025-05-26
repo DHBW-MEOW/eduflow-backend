@@ -68,14 +68,11 @@ async fn handle_register(
     let salt = SaltString::encode_b64(&salt_bytes);
 
     // salt generation error
-    match (&result, &salt) {
-        (Err(_), _) | (_, Err(_)) => {
-            return Json(RegisterResponse {
-                register_status: RegisterStatus::InternalFailure,
-                token: None,
-            });
-        }
-        _ => {}
+    if result.is_err() || salt.is_err() {
+        return Json(RegisterResponse {
+            register_status: RegisterStatus::InternalFailure,
+            token: None,
+        });
     }
     let salt = salt.unwrap();
 
@@ -83,7 +80,7 @@ async fn handle_register(
     let password_hash = argon2.hash_password(request.password.as_bytes(), salt.as_salt());
 
     // hashing error
-    if let Err(_) = password_hash {
+    if password_hash.is_err() {
         return Json(RegisterResponse {
             register_status: RegisterStatus::InternalFailure,
             token: None,
@@ -96,7 +93,7 @@ async fn handle_register(
         .new_user(&request.username, password_hash.serialize().as_str());
 
     // if this fails, the username is already taken
-    if let Err(_) = result {
+    if result.is_err() {
         return Json(RegisterResponse {
             register_status: RegisterStatus::UsernameTakenFailure,
             token: None,
@@ -121,7 +118,7 @@ async fn handle_login(
 
     let user = state.db.get_user_by_username(&request.username);
 
-    if let Err(_) = user {
+    if user.is_err() {
         // User has not been found or an error occurred
         return Json(LoginResponse {
             login_status: LoginStatus::Failure,
@@ -134,7 +131,7 @@ async fn handle_login(
     let pwd_hash = PasswordHash::new(&user.password_hash).expect("Password Hash corrupted in DB!");
     let result = Argon2::default().verify_password(request.password.as_bytes(), &pwd_hash);
 
-    if let Err(_) = result {
+    if result.is_err() {
         // Password does not match
         return Json(LoginResponse {
             login_status: LoginStatus::Failure,
