@@ -1,12 +1,29 @@
-use axum::Router;
+use std::sync::Arc;
 
+use axum::{routing::get, Router};
+use db::{sqlite::SqliteDatabase, DBInterface};
+
+mod auth_handler;
+mod db;
+
+struct AppState {
+    db: Box<dyn DBInterface + Send + Sync>,
+}
 
 #[tokio::main]
 async fn main() {
-    let app = Router::new()
-        .route("/hello", axum::routing::get(|| async { "Hello, World!" }));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+    let shared_state = Arc::new(AppState {
+        db: Box::new(SqliteDatabase::new("db.sqlite").expect("Failed to create database"))
+    });
+
+    let auth_router = auth_handler::auth_router(shared_state);
+
+    let app = Router::new()
+        .route("/hello", get(|| async { "Hello, World!" }))
+        .nest("/auth", auth_router);
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .expect("Failed to bind TCP listener");
 

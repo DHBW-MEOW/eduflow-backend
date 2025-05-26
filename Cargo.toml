@@ -4,6 +4,18 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# web server specific
 axum = "0.8.4"
-tokio = { version = "1.45.1", features = ["full"] }
 tower = "0.5.2"
+
+# DB specific
+rusqlite = { version = "0.35.0" }
+r2d2 = "0.8.10"
+r2d2_sqlite = "0.28.0"
+
+
+# generall stuff
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+tokio = { version = "1.45.1", features = ["full"] }
+
