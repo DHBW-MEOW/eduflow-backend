@@ -1,15 +1,19 @@
 use std::sync::Arc;
 
-use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use axum::{extract::State, routing::get, Json, Router};
+use argon2::{
+    Argon2,
+    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, Salt, SaltString},
+};
+use axum::{Json, Router, extract::State, routing::get};
+use rand::{TryRngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
 
 /// This function defines the authentication routes for the application.
 pub fn auth_router(state: Arc<crate::AppState>) -> Router {
     Router::new()
+        .route("/register", get(handle_register))
         .route("/login", get(handle_login))
-        //.route("/logout", get(|| async { "Logout Endpoint" }))
-        //.route("/register", get(|| async { "Register Endpoint" }))
+        //.route("/logout", get(|| async { "Logout Endpoint" })) // logout basically invalidates a existing token
         .with_state(state)
 }
 
@@ -32,22 +36,94 @@ enum LoginStatus {
     Success,
     Failure,
 }
-/// struct used for token response
+/// struct used for login response
 #[derive(Deserialize, Serialize, Debug)]
-struct TokenResponse {
+struct LoginResponse {
     login_status: LoginStatus,
     token: Option<String>,
 }
 
+/// enum used for register status
+#[derive(Deserialize, Serialize, Debug)]
+enum RegisterStatus {
+    Success,
+    InternalFailure,
+    UsernameTakenFailure,
+}
+/// struct used for register response
+#[derive(Deserialize, Serialize, Debug)]
+struct RegisterResponse {
+    register_status: RegisterStatus,
+    token: Option<String>,
+}
+
+/// handler for registration requests
+async fn handle_register(
+    State(state): State<Arc<crate::AppState>>,
+    Json(request): Json<LoginRequest>,
+) -> Json<RegisterResponse> {
+    // generate salt
+    let mut salt_bytes = [0u8; Salt::RECOMMENDED_LENGTH];
+    let result = OsRng.try_fill_bytes(&mut salt_bytes);
+    let salt = SaltString::encode_b64(&salt_bytes);
+
+    // salt generation error
+    match (&result, &salt) {
+        (Err(_), _) | (_, Err(_)) => {
+            return Json(RegisterResponse {
+                register_status: RegisterStatus::InternalFailure,
+                token: None,
+            });
+        }
+        _ => {}
+    }
+    let salt = salt.unwrap();
+
+    let argon2 = Argon2::default();
+    let password_hash = argon2.hash_password(request.password.as_bytes(), salt.as_salt());
+
+    // hashing error
+    if let Err(_) = password_hash {
+        return Json(RegisterResponse {
+            register_status: RegisterStatus::InternalFailure,
+            token: None,
+        });
+    }
+    let password_hash = password_hash.unwrap();
+
+    let result = state
+        .db
+        .new_user(&request.username, password_hash.serialize().as_str());
+
+    // if this fails, the username is already taken
+    if let Err(_) = result {
+        return Json(RegisterResponse {
+            register_status: RegisterStatus::UsernameTakenFailure,
+            token: None,
+        });
+    }
+
+    // all is right -> generate token so user can log in immedieately
+    // TODO: Generate token
+
+    Json(RegisterResponse {
+        register_status: RegisterStatus::Success,
+        token: None,
+    })
+}
+
 /// handler for login requests
-async fn handle_login(State(state): State<Arc<crate::AppState>>, Json(request): Json<LoginRequest>) -> Json<TokenResponse> {
+async fn handle_login(
+    State(state): State<Arc<crate::AppState>>,
+    Json(request): Json<LoginRequest>,
+) -> Json<LoginResponse> {
     println!("Login request received: {:?}", request);
 
     let user = state.db.get_user_by_username(&request.username);
 
     if let Err(_) = user {
         // User has not been found or an error occurred
-        return Json(TokenResponse {
+        return Json(LoginResponse {
             login_status: LoginStatus::Failure,
             token: None,
         });
@@ -60,16 +136,17 @@ async fn handle_login(State(state): State<Arc<crate::AppState>>, Json(request): 
 
     if let Err(_) = result {
         // Password does not match
-        return Json(TokenResponse {
+        return Json(LoginResponse {
             login_status: LoginStatus::Failure,
             token: None,
         });
     }
 
     // password matches -> generate token
+    // TODO: generate token
 
-
-    Json(TokenResponse { login_status: LoginStatus::Failure, token: None })
-    
-
+    Json(LoginResponse {
+        login_status: LoginStatus::Success,
+        token: None,
+    })
 }

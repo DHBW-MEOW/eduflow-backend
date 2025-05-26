@@ -36,11 +36,10 @@ impl SqliteDatabase {
         let conn = self.get_conn()?;
         // Create user table
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS users (
+            "CREATE TABLE IF NOT EXISTS user (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
-                password_salt TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )",
             [],
@@ -54,17 +53,25 @@ impl DBInterface for SqliteDatabase {
     fn get_user_by_username(&self, username: &str) -> Result<User, Box<dyn Error>> {
         let conn = self.get_conn()?;
     
-        let sql = "SELECT u.id, u.username, u.password_hash, u.password_salt, u.created_at FROM users u WHERE u.username = ?1";
+        let sql = "SELECT u.id, u.username, u.password_hash, u.created_at FROM user u WHERE u.username = ?1";
         let user = conn.query_row(sql, params![username], |row| {
             Ok(User {
                 id: row.get(0)?,
                 username: row.get(1)?,
                 password_hash: row.get(2)?,
-                password_salt: row.get(3)?,
-                created_at: row.get(4)?, // FIXME: Use chrono::NaiveDateTime for better date handling
+                created_at: row.get(3)?, // FIXME: Use chrono::NaiveDateTime for better date handling
             })
         })?;
 
         Ok(user)    
+    }
+    
+    fn new_user(&self, username: &str, password_hash: &str) -> Result<(), Box<dyn Error>> {
+        let conn = self.get_conn()?;
+
+        let sql = "INSERT INTO user (username, password_hash) VALUES (?1, ?2)";
+        conn.execute(sql, params![username, password_hash])?;
+        
+        Ok(())
     }
 }
