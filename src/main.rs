@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::{routing::get, Router};
 use db::{sqlite::SqliteDatabase, DBInterface};
+use log::info;
 
 mod auth_handler;
 mod db;
@@ -14,6 +15,8 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
+
 
     let shared_state = Arc::new(AppState {
         db: Box::new(SqliteDatabase::new("db.sqlite").expect("Failed to create database"))
@@ -32,7 +35,7 @@ async fn main() {
     let server = axum::serve(listener, app);
         
 
-    println!("Server running on http://localhost:3000");
+    info!("Server running on http://localhost:3000");
 
     server.await.expect("Failed to start server");
 

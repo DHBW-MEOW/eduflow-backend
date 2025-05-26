@@ -1,5 +1,6 @@
 use std::{error::Error, path::Path, sync::Arc};
 
+use log::debug;
 use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
@@ -72,6 +73,7 @@ impl DBInterface for SqliteDatabase {
         let sql = "INSERT INTO user (username, password_hash) VALUES (?1, ?2)";
         conn.execute(sql, params![username, password_hash])?;
         
+        debug!("Created new user");
         Ok(())
     }
 }

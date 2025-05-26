@@ -5,6 +5,7 @@ use argon2::{
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, Salt, SaltString},
 };
 use axum::{Json, Router, extract::State, routing::get};
+use log::{debug, info, warn};
 use rand::{TryRngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
 
@@ -62,6 +63,7 @@ async fn handle_register(
     State(state): State<Arc<crate::AppState>>,
     Json(request): Json<LoginRequest>,
 ) -> Json<RegisterResponse> {
+    info!("Register request for new user {}", request.username);
     // generate salt
     let mut salt_bytes = [0u8; Salt::RECOMMENDED_LENGTH];
     let result = OsRng.try_fill_bytes(&mut salt_bytes);
@@ -103,6 +105,9 @@ async fn handle_register(
     // all is right -> generate token so user can log in immedieately
     // TODO: Generate token
 
+
+    info!("Registered new user {}", request.username);
+
     Json(RegisterResponse {
         register_status: RegisterStatus::Success,
         token: None,
@@ -114,7 +119,7 @@ async fn handle_login(
     State(state): State<Arc<crate::AppState>>,
     Json(request): Json<LoginRequest>,
 ) -> Json<LoginResponse> {
-    println!("Login request received: {:?}", request);
+    info!("Login request from user {}", request.username);
 
     let user = state.db.get_user_by_username(&request.username);
 
@@ -127,11 +132,15 @@ async fn handle_login(
     }
     let user = user.unwrap();
 
+    debug!("User found! {:?}", user); // FIXME: maybe not print the password hash
+
     // check if the password matches
     let pwd_hash = PasswordHash::new(&user.password_hash).expect("Password Hash corrupted in DB!");
     let result = Argon2::default().verify_password(request.password.as_bytes(), &pwd_hash);
 
     if result.is_err() {
+        warn!("User {} entered wrong password!", request.username);
+
         // Password does not match
         return Json(LoginResponse {
             login_status: LoginStatus::Failure,
