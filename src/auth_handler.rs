@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use axum::{extract::State, routing::get, Json, Router};
 use serde::{Deserialize, Serialize};
 
@@ -42,9 +43,33 @@ struct TokenResponse {
 async fn handle_login(State(state): State<Arc<crate::AppState>>, Json(request): Json<LoginRequest>) -> Json<TokenResponse> {
     println!("Login request received: {:?}", request);
 
-    Json(TokenResponse {
-        login_status: LoginStatus::Failure,
-        //token: Some("test".to_string()),
-        token: None,
-    })
+    let user = state.db.get_user_by_username(&request.username);
+
+    if let Err(_) = user {
+        // User has not been found or an error occurred
+        return Json(TokenResponse {
+            login_status: LoginStatus::Failure,
+            token: None,
+        });
+    }
+    let user = user.unwrap();
+
+    // check if the password matches
+    let pwd_hash = PasswordHash::new(&user.password_hash).expect("Password Hash corrupted in DB!");
+    let result = Argon2::default().verify_password(request.password.as_bytes(), &pwd_hash);
+
+    if let Err(_) = result {
+        // Password does not match
+        return Json(TokenResponse {
+            login_status: LoginStatus::Failure,
+            token: None,
+        });
+    }
+
+    // password matches -> generate token
+
+
+    Json(TokenResponse { login_status: LoginStatus::Failure, token: None })
+    
+
 }

@@ -41,7 +41,7 @@ impl SqliteDatabase {
                 username TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
                 password_salt TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )",
             [],
         )?;

@@ -6,7 +6,9 @@ use db::{sqlite::SqliteDatabase, DBInterface};
 mod auth_handler;
 mod db;
 
+// Define the application state that will be shared across handlers
 struct AppState {
+    // db needs to be send and sync because it will be shared across multiple threads
     db: Box<dyn DBInterface + Send + Sync>,
 }
 

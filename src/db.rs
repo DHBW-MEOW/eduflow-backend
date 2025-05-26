@@ -5,6 +5,7 @@ pub mod sqlite;
 
 /// Database interface trait that defines the methods for database operations.
 pub trait DBInterface {
+    /// Get a user by their username.
     fn get_user_by_username(&self, username: &str) -> Result<User, Box<dyn Error>>;
 }
 
