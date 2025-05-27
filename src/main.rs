@@ -8,6 +8,7 @@ use log::info;
 mod auth_handler;
 mod db;
 mod crypt;
+mod data_handler;
 
 // Define the application state that will be shared across handlers
 struct AppState {
@@ -20,18 +21,18 @@ struct AppState {
 async fn main() {
     env_logger::init();
 
-
-
     let shared_state = Arc::new(AppState {
         db: Box::new(SqliteDatabase::new("db.sqlite").expect("Failed to create database")),
         crypt_provider: CryptProviders::SimpleCryptProv
     });
 
-    let auth_router = auth_handler::auth_router(shared_state);
+    let auth_router = auth_handler::auth_router(shared_state.clone());
+    let data_router = data_handler::data_router(shared_state.clone());
 
     let app = Router::new()
         .route("/hello", get(|| async { "Hello, World!" }))
-        .nest("/auth", auth_router);
+        .nest("/auth", auth_router)
+        .nest("/data", data_router);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await

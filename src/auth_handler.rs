@@ -194,5 +194,23 @@ fn create_remote_token(user_id: i32, password: String, state: Arc<AppState>, val
         Ok::<(), Box<dyn Error>>(())
     })?;
 
+    // prefix the token with the user id
+    let remote_token = user_id.to_string() + "_" + &remote_token;
+
     Ok(remote_token)
+}
+
+pub fn split_auth_header(token: &str) -> Result<(i32, String), Box<dyn Error>> {
+    // check for Bearer token
+    let token = token.strip_prefix("Bearer ").ok_or("Invalid Token")?;
+
+    // split the user id 
+    let split: Vec<&str> = token.split_terminator("_").collect();
+
+    let first = split.get(0).ok_or("Invalid Token")?;
+    let second = split.get(1).ok_or("Invalid Token")?;
+
+    // convert user id to i32
+    Ok((first.parse()?, second.to_string()))
+
 }

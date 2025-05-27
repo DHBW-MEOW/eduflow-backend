@@ -1,0 +1,22 @@
+meta {
+  name: New Module
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:3000/data/module
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: abcdefghijklmnopqrst
+}
+
+body:json {
+  {
+    "id": 0,
+    "name": "test"
+  }
+}

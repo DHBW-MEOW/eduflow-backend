@@ -4,6 +4,7 @@ const CHARSET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz12345
 const LENGTH: usize = 32;
 
 pub fn generate_token() -> String {
+    // FIXME: add timestamp to ensure uniqueness
     // uses ThreadRng, which "should be secure" as the rand docs state, we will assume it is. 
     let mut rng = rand::rng(); 
 
