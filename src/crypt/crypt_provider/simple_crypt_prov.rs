@@ -6,11 +6,14 @@ use super::CryptProvider;
 pub struct SimpleCryptProv {}
 
 impl CryptProvider for SimpleCryptProv {
-    fn encrypt(&self, data: &[u8], key: &[u8]) -> Vec<u8> {
+    fn encrypt(data: &[u8], key: &[u8]) -> Vec<u8> {
         encrypt(data, key).expect("fail") // FIXME: remove expect 
     }
 
-    fn decrypt(&self, data_crypt: &[u8], key: &[u8]) -> Vec<u8> {
+    fn decrypt(data_crypt: &[u8], key: &[u8]) -> Vec<u8> {
         decrypt(data_crypt, key).expect("decrypt fail") // FIXME: remove expect -> panics on wrong passwd
     }
 }
+
+unsafe impl Send for SimpleCryptProv {}
+unsafe impl Sync for SimpleCryptProv {}

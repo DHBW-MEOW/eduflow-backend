@@ -62,13 +62,12 @@ impl SqliteDatabase {
 
         // local token table remote token encrypted (stores encrypted local tokens)
         // these tokens are encrypted with the remote token, which can be invalidated by deleting db entries in this table
-        // remote_token_hash stores the hash of the remote token, resulting in a remote token only having access to local tokens, which have been encrypted with it.
+        // resulting in a remote token only having access to local tokens, which have been encrypted with it.
         conn.execute(
             "CREATE TABLE IF NOT EXISTS rtcrypt_local_token (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 local_token_id INTEGER NOT NULL,
                 local_token BLOB NOT NULL,
-                remote_token_hash TEXT NOT NULL,
                 valid_until TIMESTAMP NOT NULL
             )", 
             [],
@@ -138,18 +137,18 @@ impl DBInterface for SqliteDatabase {
         Ok(())
     }
     
-    fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, remote_token_hash: &str, valid_until: &chrono::NaiveDateTime) -> Result<(), Box<dyn Error>> {
+    fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, valid_until: &chrono::NaiveDateTime) -> Result<(), Box<dyn Error>> {
         let conn = self.get_conn()?;
 
-        let sql = "INSERT INTO rtcrypt_local_token (local_token_id, local_token, remote_token_hash, valid_until) VALUES (?1, ?2, ?3, ?4)";
-        conn.execute(sql, params![local_token_id, local_token_crypt.data_crypt, remote_token_hash, valid_until])?;
+        let sql = "INSERT INTO rtcrypt_local_token (local_token_id, local_token, valid_until) VALUES (?1, ?2, ?3)";
+        conn.execute(sql, params![local_token_id, local_token_crypt.data_crypt, valid_until])?;
 
         debug!("Created new remote token encrypted local token");
 
         Ok(())
     }
     
-    fn get_local_token_by_user_pwcrypt(&self, user_id: i32) -> Result<Vec<LocalTokenPWCrypt>, Box<dyn Error>> {
+    fn get_local_tokens_by_user_pwcrypt(&self, user_id: i32) -> Result<Vec<LocalTokenPWCrypt>, Box<dyn Error>> {
         let conn = self.get_conn()?;
         let mut stmt = conn.prepare("SELECT lt.id, lt.user_id, lt.local_token FROM pwcrypt_local_token lt WHERE lt.user_id = ?1")?;
         let local_tokens = stmt.query_map(params![user_id], |row| {
@@ -179,6 +178,7 @@ impl DBInterface for SqliteDatabase {
         Ok(local_token)
     }
     
+    /*
     fn get_local_tokens_by_rthash(&self, remote_token_hash: &str) -> Result<Vec<LocalTokenRTCrypt>, Box<dyn Error>> {
         let conn = self.get_conn()?;
         let mut stmt = conn.prepare("SELECT lt.id, lt.local_token_id, lt.local_token, lt.remote_token_hash, lt.valid_until FROM rtcrypt_local_token lt WHERE lt.remote_token_hash = ?1")?;
@@ -196,17 +196,17 @@ impl DBInterface for SqliteDatabase {
 
         Ok(local_tokens)
     }
+    */
     
     fn get_local_token_by_id_rtcrypt(&self, local_token_id: i32) -> Result<LocalTokenRTCrypt, Box<dyn Error>> {
         let conn = self.get_conn()?;
-        let sql = "SELECT lt.id, lt.local_token_id, lt.local_token, lt.remote_token_hash, lt.valid_until FROM rtcrypt_local_token lt WHERE lt.local_token_id = ?1";
+        let sql = "SELECT lt.id, lt.local_token_id, lt.local_token, lt.valid_until FROM rtcrypt_local_token lt WHERE lt.local_token_id = ?1";
         let local_token = conn.query_row(sql, params![local_token_id], |row| {
             Ok(LocalTokenRTCrypt {
                 id: row.get(0)?,
                 local_token_id: row.get(1)?,
                 local_token_crypt: CryptString { data_crypt: row.get(2)? },
-                remote_token_hash: row.get(3)?,
-                valid_until: row.get(4)?,
+                valid_until: row.get(3)?,
             })
         })?;
 

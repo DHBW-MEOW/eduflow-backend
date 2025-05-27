@@ -23,15 +23,15 @@ pub trait DBInterface {
     /// create new password encrypted local token
     fn new_local_token_pwcrypt(&self, user_id: i32, token_crypt: CryptString) -> Result<(), Box<dyn Error>>;
     /// create a new encrypted version of an already existing local token (encrypted by a remote token)
-    fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, remote_token_hash: &str, valid_until: &NaiveDateTime) -> Result<(), Box<dyn Error>>;
+    fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, valid_until: &NaiveDateTime) -> Result<(), Box<dyn Error>>;
 
     // get tokens
     /// get all local tokens for a user encrypted by password
-    fn get_local_token_by_user_pwcrypt(&self, user_id: i32) -> Result<Vec<LocalTokenPWCrypt>, Box<dyn Error>>;
+    fn get_local_tokens_by_user_pwcrypt(&self, user_id: i32) -> Result<Vec<LocalTokenPWCrypt>, Box<dyn Error>>;
     /// get a single local token by id encrypted by password
     fn get_local_token_by_id_pwcrypt(&self, local_token_id: i32) -> Result<LocalTokenPWCrypt, Box<dyn Error>>;
     /// get all local tokens encrypted by a remote token
-    fn get_local_tokens_by_rthash(&self, remote_token_hash: &str) -> Result<Vec<LocalTokenRTCrypt>, Box<dyn Error>>;
+    //fn get_local_tokens_by_rthash(&self, remote_token_hash: &str) -> Result<Vec<LocalTokenRTCrypt>, Box<dyn Error>>;
     /// get a single local token encrypted by a remote token
     fn get_local_token_by_id_rtcrypt(&self, local_token_id: i32) -> Result<LocalTokenRTCrypt, Box<dyn Error>>;
 
@@ -65,7 +65,7 @@ pub struct LocalTokenRTCrypt {
     pub id: i32,
     pub local_token_id: i32,
     pub local_token_crypt: CryptString,
-    pub remote_token_hash: String,
+    //pub remote_token_hash: String,
     pub valid_until: NaiveDateTime,
 }
 

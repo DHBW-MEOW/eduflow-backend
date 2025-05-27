@@ -1,13 +1,19 @@
-use std::sync::Arc;
+use std::{error::Error, sync::Arc};
 
 use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, Salt, SaltString},
 };
 use axum::{Json, Router, extract::State, routing::get};
-use log::{debug, info, warn};
+use chrono::{Days, Utc};
+use log::{debug, error, info, warn};
 use rand::{TryRngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
+use token_gen::generate_token;
+
+use crate::{crypt::{crypt_types::CryptString, Cryptable}, AppState};
+
+mod token_gen;
 
 /// This function defines the authentication routes for the application.
 pub fn auth_router(state: Arc<crate::AppState>) -> Router {
@@ -36,6 +42,7 @@ struct LogoutRequest {
 enum LoginStatus {
     Success,
     Failure,
+    InternalFailure,
 }
 /// struct used for login response
 #[derive(Deserialize, Serialize, Debug)]
@@ -60,7 +67,7 @@ struct RegisterResponse {
 
 /// handler for registration requests
 async fn handle_register(
-    State(state): State<Arc<crate::AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<LoginRequest>,
 ) -> Json<RegisterResponse> {
     info!("Register request for new user {}", request.username);
@@ -114,9 +121,10 @@ async fn handle_register(
     })
 }
 
+const TOKEN_EXPIRE: u64 = 14; // days after which a token expires
 /// handler for login requests
 async fn handle_login(
-    State(state): State<Arc<crate::AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<LoginRequest>,
 ) -> Json<LoginResponse> {
     info!("Login request from user {}", request.username);
@@ -125,6 +133,7 @@ async fn handle_login(
 
     if user.is_err() {
         // User has not been found or an error occurred
+        // FIXME: prevent username bruteforce (artificial delay)
         return Json(LoginResponse {
             login_status: LoginStatus::Failure,
             token: None,
@@ -151,8 +160,39 @@ async fn handle_login(
     // password matches -> generate token
     // TODO: generate token
 
+    let remote_token = create_remote_token(user.id, request.password, state, TOKEN_EXPIRE);
+
+    if remote_token.is_err() {
+        // internal decryption error or db error
+        error!("Generating remote token failed!");
+        return Json(LoginResponse {
+            login_status: LoginStatus::InternalFailure,
+            token: None,
+        });
+    }
+    let remote_token = remote_token.unwrap();
+
     Json(LoginResponse {
         login_status: LoginStatus::Success,
-        token: None,
+        token: Some(remote_token),
     })
+}
+
+
+fn create_remote_token(user_id: i32, password: String, state: Arc<AppState>, valid_days: u64) -> Result<String, Box<dyn Error>> {
+    let remote_token = generate_token();
+
+    let valid_until = Utc::now().naive_utc() + Days::new(valid_days);
+
+    // re-encrypt every local-token the user posseses, this can also be limited to only some local-tokens to restrict permissions
+    state.db.get_local_tokens_by_user_pwcrypt(user_id)?.iter().try_for_each(|lt| {
+        let local_token = lt.token_crypt.decrypt(password.as_bytes(), &state.crypt_provider)?;
+
+        let newcrypt_token = CryptString::encrypt(&local_token, remote_token.as_bytes(), &state.crypt_provider);
+        state.db.new_local_token_rtcrypt(lt.id, &newcrypt_token, &valid_until)?;
+
+        Ok::<(), Box<dyn Error>>(())
+    })?;
+
+    Ok(remote_token)
 }
