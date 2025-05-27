@@ -184,6 +184,28 @@ fn create_remote_token(user_id: i32, password: String, state: Arc<AppState>, val
 
     let valid_until = Utc::now().naive_utc() + Days::new(valid_days);
 
+    // hash the token
+    // generate salt
+    let mut salt_bytes = [0u8; Salt::RECOMMENDED_LENGTH];
+    OsRng.try_fill_bytes(&mut salt_bytes)?;
+    let salt = SaltString::encode_b64(&salt_bytes);
+    // salting problem occurred
+    if salt.is_err() {
+        return Err("salting failed".into());
+    }
+    let salt = salt.unwrap();
+
+    let argon2 = Argon2::default();
+    let token_hashed = argon2.hash_password(remote_token.as_bytes(), salt.as_salt());
+    // hashing error
+    if token_hashed.is_err() {
+        return Err("hashing failed".into());
+    }
+    let token_hashed = token_hashed.unwrap().to_string();
+
+    // insert hashed token into db
+    let remote_token_id = state.db.new_remote_token(&token_hashed, user_id)?;
+    
     // re-encrypt every local-token the user posseses, this can also be limited to only some local-tokens to restrict permissions
     state.db.get_local_tokens_by_user_pwcrypt(user_id)?.iter().try_for_each(|lt| {
         let local_token = lt.token_crypt.decrypt(password.as_bytes(), &state.crypt_provider)?;
@@ -194,13 +216,13 @@ fn create_remote_token(user_id: i32, password: String, state: Arc<AppState>, val
         Ok::<(), Box<dyn Error>>(())
     })?;
 
-    // prefix the token with the user id
-    let remote_token = user_id.to_string() + "_" + &remote_token;
+    // prefix the token with user id and token id
+    let remote_token = user_id.to_string() + "_" + &remote_token_id.to_string() + "_" + &remote_token;
 
     Ok(remote_token)
 }
 
-pub fn split_auth_header(token: &str) -> Result<(i32, String), Box<dyn Error>> {
+pub fn split_auth_header(token: &str) -> Result<(i32, i32, String), Box<dyn Error>> {
     // check for Bearer token
     let token = token.strip_prefix("Bearer ").ok_or("Invalid Token")?;
 
@@ -209,8 +231,13 @@ pub fn split_auth_header(token: &str) -> Result<(i32, String), Box<dyn Error>> {
 
     let first = split.get(0).ok_or("Invalid Token")?;
     let second = split.get(1).ok_or("Invalid Token")?;
+    let third = split.get(2).ok_or("Invalid Token")?;
 
     // convert user id to i32
-    Ok((first.parse()?, second.to_string()))
+    Ok((first.parse()?, second.parse()?, third.to_string()))
 
+}
+
+pub fn verify_user(token: &str, token_id: i32, user_id: i32) -> Result<(), Box<dyn Error>> {
+    todo!()
 }

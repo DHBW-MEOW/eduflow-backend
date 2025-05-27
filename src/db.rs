@@ -24,6 +24,8 @@ pub trait DBInterface {
     fn new_local_token_pwcrypt(&self, user_id: i32, token_crypt: CryptString) -> Result<(), Box<dyn Error>>;
     /// create a new encrypted version of an already existing local token (encrypted by a remote token)
     fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, valid_until: &NaiveDateTime) -> Result<(), Box<dyn Error>>;
+    /// create new remote token, results in write access, returns remote token id
+    fn new_remote_token(&self, rt_hash: &str, user_id: i32) -> Result<i64, Box<dyn Error>>;
 
     // get tokens
     /// get all local tokens for a user encrypted by password
@@ -34,6 +36,9 @@ pub trait DBInterface {
     //fn get_local_tokens_by_rthash(&self, remote_token_hash: &str) -> Result<Vec<LocalTokenRTCrypt>, Box<dyn Error>>;
     /// get a single local token encrypted by a remote token
     fn get_local_token_by_id_rtcrypt(&self, local_token_id: i32) -> Result<LocalTokenRTCrypt, Box<dyn Error>>;
+    /// get remote token by id
+    fn get_remote_token(&self, token_id: i32) -> Result<RemoteToken, Box<dyn Error>>;
+
 
     // DATA
     // dummy related
@@ -69,6 +74,12 @@ pub struct LocalTokenRTCrypt {
     pub valid_until: NaiveDateTime,
 }
 
+#[derive(Debug)]
+pub struct RemoteToken {
+    pub id: i32,
+    pub rt_hash: String,
+    pub user_id: i32
+} 
 
 // DATA
 /// just a testing struct so we can confirm functionallity

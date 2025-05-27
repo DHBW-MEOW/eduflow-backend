@@ -7,7 +7,7 @@ use rusqlite::params;
 
 use crate::crypt::crypt_types::{CryptI32, CryptString};
 
-use super::{DBInterface, LocalTokenPWCrypt, LocalTokenRTCrypt, TestDummy, User};
+use super::{DBInterface, LocalTokenPWCrypt, LocalTokenRTCrypt, RemoteToken, TestDummy, User};
 
 pub struct SqliteDatabase {
     pool: Arc<Pool<SqliteConnectionManager>>,
@@ -72,7 +72,16 @@ impl SqliteDatabase {
             )", 
             [],
         )?;
-        
+
+        // remote token hashes are stored in this table, used to write access
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS remote_token (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rt_hash TEXT NOT NULL,
+                user_id INTEGER NOT NULL
+            )", 
+            [],
+        )?;
 
         Ok(())
     }
@@ -211,6 +220,21 @@ impl DBInterface for SqliteDatabase {
         })?;
 
         Ok(local_token)
+    }
+
+    fn new_remote_token(&self, rt_hash: &str, user_id: i32) -> Result<i64, Box<dyn Error>> {
+        let conn = self.get_conn()?;
+        let sql = "INSERT INTO remote_token (rt_hash, user_id) VALUES (?1, ?2)";
+        conn.execute(sql, params![rt_hash, user_id])?;
+
+        debug!("Created new user bound remote token (hashed)");
+
+        let id = conn.last_insert_rowid();
+        Ok(id)
+    }
+    
+    fn get_remote_token(&self, rt_hash: i32) -> Result<RemoteToken, Box<dyn Error>> {
+        todo!()
     }
 
 

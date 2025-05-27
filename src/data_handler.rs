@@ -4,7 +4,7 @@ use axum::{extract::State, http::HeaderMap, routing::{delete, get, post}, Json, 
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::{auth_handler::split_auth_header, AppState};
+use crate::{auth_handler::{split_auth_header, verify_user}, AppState};
 
 
 /// This function defines the authentication routes for the application.
@@ -64,14 +64,13 @@ async fn handle_new_module(headers: HeaderMap, State(state): State<Arc<AppState>
     }
     let auth_header = auth_header.unwrap();
 
-    let token_split = split_auth_header(auth_header);
+    let split_token = split_auth_header(auth_header);
 
     // invalid token format
-    if token_split.is_err() {
+    if split_token.is_err() {
         return Json(EditResponse::AuthFailure);
     }
-    let (user_id, token) = token_split.unwrap();
-
+    let split_token = split_token.unwrap();
     // 
 
 
