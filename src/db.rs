@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use chrono::NaiveDateTime;
+use db_derive::DBObject;
 
 use crate::crypt::crypt_types::{CryptI32, CryptString};
 
@@ -41,6 +42,7 @@ pub trait DBInterface {
 
 
     // DATA
+    //fn register_struct<T>(&self, dummy_object: T) -> Result<(), Box<dyn Error>>;
     // dummy related
     fn new_dummy(&self, name: &str, secret_number: &CryptI32, secret_text: &CryptString, decryptable_by: i32) -> Result<(), Box<dyn Error>>;
 
@@ -83,11 +85,19 @@ pub struct RemoteToken {
 
 // DATA
 /// just a testing struct so we can confirm functionallity
-#[derive(Debug)]
+#[derive(Debug, DBObject)]
 pub struct TestDummy {
     pub id: i32,
     pub name: String,
     pub secret_number: CryptI32,
     pub secret_text: CryptString,
     pub decryptable_by: i32,
+}
+
+/// module db entry
+#[derive(DBObject)]
+pub struct ModuleDB {
+    pub id: i32,
+    pub name: CryptString,
+    pub test_float: f64,
 }

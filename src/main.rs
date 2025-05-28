@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{routing::get, Router};
 use crypt::crypt_provider::CryptProviders;
-use db::{sqlite::SqliteDatabase, DBInterface};
+use db::{sqlite::SqliteDatabase, DBInterface, TestDummy};
 use log::info;
 
 mod auth_handler;
@@ -18,8 +18,12 @@ struct AppState {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() {    
     env_logger::init();
+
+    info!("{}", TestDummy::get_db_table_create());
+    info!("{}", TestDummy::get_db_insert());
+
 
     let shared_state = Arc::new(AppState {
         db: Box::new(SqliteDatabase::new("db.sqlite").expect("Failed to create database")),

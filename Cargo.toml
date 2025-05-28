@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# own dependencies
+db_derive = { path = "./db_derive" }
+
 # web server specific
 axum = "0.8.4"
 tower = "0.5.2"
