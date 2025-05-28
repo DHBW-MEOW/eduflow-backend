@@ -412,6 +412,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "eduflow-backend"
+version = "0.1.0"
+dependencies = [
+ "argon2",
+ "axum",
+ "chrono",
+ "db_derive",
+ "env_logger",
+ "log",
+ "r2d2",
+ "r2d2_sqlite",
+ "rand",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "simple_crypt",
+ "tokio",
+ "tower",
+]
+
+[[package]]
 name = "env_filter"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1251,27 +1272,6 @@ checksum = "e22376abed350d73dd1cd119b57ffccad95b4e585a7cda43e286245ce23c0678"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "studywhatever-backend"
-version = "0.1.0"
-dependencies = [
- "argon2",
- "axum",
- "chrono",
- "db_derive",
- "env_logger",
- "log",
- "r2d2",
- "r2d2_sqlite",
- "rand",
- "rusqlite",
- "serde",
- "serde_json",
- "simple_crypt",
- "tokio",
- "tower",
 ]
 
 [[package]]
