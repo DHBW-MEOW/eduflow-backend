@@ -68,6 +68,7 @@ impl SqliteDatabase {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 local_token_id INTEGER NOT NULL,
                 local_token BLOB NOT NULL,
+                decrypt_by_rt_id INTEGER NOT NULL,
                 valid_until TIMESTAMP NOT NULL
             )", 
             [],
@@ -146,11 +147,11 @@ impl DBInterface for SqliteDatabase {
         Ok(())
     }
     
-    fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, valid_until: &chrono::NaiveDateTime) -> Result<(), Box<dyn Error>> {
+    fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, decryptable_by_rt_id: i32, valid_until: &chrono::NaiveDateTime) -> Result<(), Box<dyn Error>> {
         let conn = self.get_conn()?;
 
-        let sql = "INSERT INTO rtcrypt_local_token (local_token_id, local_token, valid_until) VALUES (?1, ?2, ?3)";
-        conn.execute(sql, params![local_token_id, local_token_crypt.data_crypt, valid_until])?;
+        let sql = "INSERT INTO rtcrypt_local_token (local_token_id, local_token, decrypt_by_rt_id, valid_until) VALUES (?1, ?2, ?3)";
+        conn.execute(sql, params![local_token_id, local_token_crypt.data_crypt, decryptable_by_rt_id, valid_until])?;
 
         debug!("Created new remote token encrypted local token");
 
@@ -209,13 +210,14 @@ impl DBInterface for SqliteDatabase {
     
     fn get_local_token_by_id_rtcrypt(&self, local_token_id: i32) -> Result<LocalTokenRTCrypt, Box<dyn Error>> {
         let conn = self.get_conn()?;
-        let sql = "SELECT lt.id, lt.local_token_id, lt.local_token, lt.valid_until FROM rtcrypt_local_token lt WHERE lt.local_token_id = ?1";
+        let sql = "SELECT lt.id, lt.local_token_id, lt.local_token, lt.decrypt_by_rt_id, lt.valid_until FROM rtcrypt_local_token lt WHERE lt.local_token_id = ?1";
         let local_token = conn.query_row(sql, params![local_token_id], |row| {
             Ok(LocalTokenRTCrypt {
                 id: row.get(0)?,
                 local_token_id: row.get(1)?,
                 local_token_crypt: CryptString { data_crypt: row.get(2)? },
-                valid_until: row.get(3)?,
+                decryptable_by_rt_id: row.get(3)?,
+                valid_until: row.get(4)?,
             })
         })?;
 
@@ -233,8 +235,18 @@ impl DBInterface for SqliteDatabase {
         Ok(id)
     }
     
-    fn get_remote_token(&self, rt_hash: i32) -> Result<RemoteToken, Box<dyn Error>> {
-        todo!()
+    fn get_remote_token(&self, token_id: i32) -> Result<RemoteToken, Box<dyn Error>> {
+        let conn = self.get_conn()?;
+        let sql = "SELECT rt.id, rt.rt_hash, rt.user_id FROM remote_token WHERE rt.id = ?1";
+        let remote_token = conn.query_row(sql, params![token_id], |row| {
+            Ok(RemoteToken {
+                id: row.get(0)?,
+                rt_hash: row.get(1)?,
+                user_id: row.get(2)?,
+            })
+        })?;
+
+        Ok(remote_token)
     }
 
 

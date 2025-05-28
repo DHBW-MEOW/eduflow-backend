@@ -4,7 +4,7 @@ use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, Salt, SaltString},
 };
-use axum::{Json, Router, extract::State, routing::get};
+use axum::{extract::State, http::HeaderValue, routing::get, Json, Router};
 use chrono::{Days, Utc};
 use log::{debug, error, info, warn};
 use rand::{TryRngCore, rngs::OsRng};
@@ -211,33 +211,53 @@ fn create_remote_token(user_id: i32, password: String, state: Arc<AppState>, val
         let local_token = lt.token_crypt.decrypt(password.as_bytes(), &state.crypt_provider)?;
 
         let newcrypt_token = CryptString::encrypt(&local_token, remote_token.as_bytes(), &state.crypt_provider);
-        state.db.new_local_token_rtcrypt(lt.id, &newcrypt_token, &valid_until)?;
+        state.db.new_local_token_rtcrypt(lt.id, &newcrypt_token, remote_token_id.try_into().expect("Remote token ID is too big!"),  &valid_until)?;
 
         Ok::<(), Box<dyn Error>>(())
     })?;
 
-    // prefix the token with user id and token id
-    let remote_token = user_id.to_string() + "_" + &remote_token_id.to_string() + "_" + &remote_token;
+    // prefix the token with its token id
+    let remote_token = remote_token_id.to_string() + "_" + &remote_token;
 
     Ok(remote_token)
 }
 
-pub fn split_auth_header(token: &str) -> Result<(i32, i32, String), Box<dyn Error>> {
+/// parses and extracts the token and token id from authentication header
+fn split_auth_header(auth_header: &str) -> Result<(i32, String), Box<dyn Error>> {
     // check for Bearer token
-    let token = token.strip_prefix("Bearer ").ok_or("Invalid Token")?;
+    let token = auth_header.strip_prefix("Bearer ").ok_or("Invalid Token")?;
 
     // split the user id 
     let split: Vec<&str> = token.split_terminator("_").collect();
 
-    let first = split.get(0).ok_or("Invalid Token")?;
-    let second = split.get(1).ok_or("Invalid Token")?;
-    let third = split.get(2).ok_or("Invalid Token")?;
+    let token_id = split.get(0).ok_or("Invalid Token")?;
+    let token = split.get(1).ok_or("Invalid Token")?;
 
     // convert user id to i32
-    Ok((first.parse()?, second.parse()?, third.to_string()))
+    Ok((token_id.parse()?, token.to_string()))
 
 }
 
-pub fn verify_user(token: &str, token_id: i32, user_id: i32) -> Result<(), Box<dyn Error>> {
-    todo!()
+/// verifies if the token is valid
+/// returns user_id, token_id and the token itself on success
+/// will return err if token is invalid]
+pub fn verify_token(auth_header: Option<&HeaderValue>, state: Arc<AppState>) -> Result<(i32, i32, String), Box<dyn Error>> {
+    // auth header validation
+    let auth_header = auth_header.ok_or("Invalid Token")?.to_str()?;
+
+    // parse the auth header
+    let (token_id, token) = split_auth_header(auth_header)?;
+
+    // get the stored token hash
+    let token_db = state.db.get_remote_token(token_id)?;
+
+    // confirm that the token matches
+    let db_token_hash = PasswordHash::new(&token_db.rt_hash).expect("Token Hash corrupted in DB!");
+    let result = Argon2::default().verify_password(token.as_bytes(), &db_token_hash);
+
+    match result {
+        Ok(_) => Ok((token_db.user_id, token_id, token)),
+        Err(_) => Err("Invalid Token".into()),
+    }
+
 }

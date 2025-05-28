@@ -23,7 +23,7 @@ pub trait DBInterface {
     /// create new password encrypted local token
     fn new_local_token_pwcrypt(&self, user_id: i32, token_crypt: CryptString) -> Result<(), Box<dyn Error>>;
     /// create a new encrypted version of an already existing local token (encrypted by a remote token)
-    fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, valid_until: &NaiveDateTime) -> Result<(), Box<dyn Error>>;
+    fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, decryptable_by_rt_id: i32, valid_until: &NaiveDateTime) -> Result<(), Box<dyn Error>>;
     /// create new remote token, results in write access, returns remote token id
     fn new_remote_token(&self, rt_hash: &str, user_id: i32) -> Result<i64, Box<dyn Error>>;
 
@@ -70,7 +70,7 @@ pub struct LocalTokenRTCrypt {
     pub id: i32,
     pub local_token_id: i32,
     pub local_token_crypt: CryptString,
-    //pub remote_token_hash: String,
+    pub decryptable_by_rt_id: i32,
     pub valid_until: NaiveDateTime,
 }
 
