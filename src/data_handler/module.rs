@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{Json, extract::State, http::HeaderMap};
-use log::{error, info};
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -30,13 +30,14 @@ pub async fn handle_new_module<DB: DBInterface + Send + Sync>(
     State(state): State<Arc<AppState<DB>>>,
     Json(request): Json<ModuleSend>,
 ) -> Json<EditResponse> {
-    info!("{:?}", headers);
+    info!("Module creation / edit requested!");
 
     let auth_header = headers.get("authorization");
 
     // verify that the token is valid
     let verified_token = verify_token(auth_header, state.clone());
     if verified_token.is_err() {
+        warn!("Authentication failure, invalid token!");
         // invalid token, authentication failure
         return Json(EditResponse::AuthFailure);
     }
@@ -62,6 +63,7 @@ pub async fn handle_new_module<DB: DBInterface + Send + Sync>(
     // id < 0 => means we want to create
     // id >= 0 means we want to edit
     if request.id < 0 {
+        info!("Authentication successful, creation requested.");
         let name =
             CryptString::encrypt(&request.name, local_token.as_bytes(), &state.crypt_provider);
 
@@ -75,8 +77,11 @@ pub async fn handle_new_module<DB: DBInterface + Send + Sync>(
             );
             return Json(EditResponse::InternalFailure);
         }
+        info!("Module creation successful.");
+
         Json(EditResponse::Success(id.unwrap()))
     } else {
+        info!("Authentication successful, edit requested.");
         // TODO: edit entry
         Json(EditResponse::Success(0))
     }

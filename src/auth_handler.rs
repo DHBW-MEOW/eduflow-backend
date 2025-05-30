@@ -6,7 +6,7 @@ use argon2::{
 };
 use axum::{extract::State, http::HeaderValue, routing::get, Json, Router};
 use chrono::{Days, Utc};
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use rand::{TryRngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
 use token_gen::generate_token;
@@ -78,6 +78,7 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
 
     // salt generation error
     if result.is_err() || salt.is_err() {
+        error!("Failed to generate salt!");
         return Json(RegisterResponse {
             register_status: RegisterStatus::InternalFailure,
             token: None,
@@ -90,6 +91,7 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
 
     // hashing error
     if password_hash.is_err() {
+        error!("Failed to hash password!");
         return Json(RegisterResponse {
             register_status: RegisterStatus::InternalFailure,
             token: None,
@@ -101,8 +103,8 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
         .db
         .new_user(&request.username, password_hash.serialize().as_str());
 
-    // if this fails, the username is already taken
     if result.is_err() {
+        info!("User tried to register with already taken username.");
         return Json(RegisterResponse {
             register_status: RegisterStatus::UsernameTakenFailure,
             token: None,
@@ -116,7 +118,7 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
     DBStructs::get_iter().for_each(|variant| {
             let result = add_new_local_token(user_id, &request.password, variant, state.clone());
             if result.is_err() {
-                error!("Failed to generate local token!, user id: {}, registration partially successfull!", user_id);
+                error!("Failed to generate local token for variant {:?}!, user id: {}, registration partially successful!", variant, user_id);
             }
     });
 
@@ -155,14 +157,13 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
     if user.is_err() {
         // User has not been found or an error occurred
         // FIXME: prevent username bruteforce (artificial delay)
+        warn!("User tried to log in with non existant user {}.\nPotential brute-force attack, watch out for too many of these warnings.", request.username);
         return Json(LoginResponse {
             login_status: LoginStatus::Failure,
             token: None,
         });
     }
     let user = user.unwrap();
-
-    debug!("User found! {:?}", user); // FIXME: maybe not print the password hash
 
     // check if the password matches
     let pwd_hash = PasswordHash::new(&user.password_hash).expect("Password Hash corrupted in DB!");
@@ -190,6 +191,8 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
         });
     }
     let remote_token = remote_token.unwrap();
+
+    info!("Login successful, returning new remote token to Client!");
 
     // build response
     Json(LoginResponse {

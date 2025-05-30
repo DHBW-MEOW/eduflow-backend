@@ -31,7 +31,7 @@ async fn main() {
     shared_state.db.create_table_for_type::<Module>().unwrap();
     //shared_state.db.new_entry::<Module>(vec![SQLWhereValue::Blob(vec![4,5,8])]).unwrap();
 
-    let entries = shared_state.db.select_entries::<Module>(select_fields! {name: vec![1,2,3]}).unwrap();
+    let entries = shared_state.db.select_entries::<Module>(select_fields! {name: vec![4,5,8]}).unwrap();
     println!("{:?}", entries);
     // test code end
 
