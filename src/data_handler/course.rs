@@ -13,13 +13,13 @@ use super::IDResponse;
 /// struct for sending and receiving the course data type
 #[derive(Deserialize, Serialize, Debug)]
 pub struct CourseSend {
-    id: i32,
+    id: Option<i32>,
     name: String,
 }
 /// struct for requesting a course (or multiple)
 #[derive(Deserialize, Serialize, Debug)]
 pub struct CourseRequest {
-    id: i32,
+    id: Option<i32>,
 }
 
 pub async fn handle_get_course<DB: DBInterface + Send + Sync>(
@@ -57,15 +57,15 @@ pub async fn handle_get_course<DB: DBInterface + Send + Sync>(
     let local_token = local_token.unwrap();
 
     // retrieve db data
-    // check if id < 0 => get all courses for the current user otherwise filter id
-    let params = if request.id < 0 {
+    // check if id is null => get all courses for the current user otherwise filter id
+    let params = if request.id.is_none() {
         select_fields! {
             user_id: user_id,
         }
     } else {
         select_fields! {
             user_id: user_id,
-            id: request.id,
+            id: request.id.unwrap(),
         }
     };
 
@@ -82,7 +82,7 @@ pub async fn handle_get_course<DB: DBInterface + Send + Sync>(
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
         Ok(CourseSend {
-            id: course.id,
+            id: Some(course.id),
             name: name.unwrap()
         })
     }).collect();
@@ -127,9 +127,9 @@ pub async fn handle_new_course<DB: DBInterface + Send + Sync>(
     }
     let local_token = local_token.unwrap();
 
-    // id < 0 => means we want to create
-    // id >= 0 means we want to edit
-    if request.id < 0 {
+    // id is null => means we want to create
+    // not null   => means we want to edit
+    if request.id.is_none() {
         info!("Authentication successful, creation requested.");
         let name =
             CryptString::encrypt(&request.name, local_token.as_bytes(), &state.crypt_provider);
