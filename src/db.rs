@@ -120,16 +120,6 @@ impl ToString for DBStructs {
     }
 }
 
-/// just a testing struct so we can confirm functionallity
-#[derive(Debug, DBObject)]
-pub struct TestDummy {
-    pub id: i32,
-    pub name: String,
-    pub secret_number: CryptI32,
-    pub secret_text: CryptString,
-    pub decryptable_by: i32,
-}
-
 /// module db entry
 #[derive(Debug, DBObject)]
 pub struct Module {

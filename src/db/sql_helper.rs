@@ -34,7 +34,6 @@ macro_rules! select_fields {
         {
             let mut map: Vec<(String, db::sql_helper::SQLWhereValue)> = Vec::new();
             $(
-                println!("Got {} = {:?}", stringify!($name), $value);
                 let wrapped = db::sql_helper::SQLWhereValue::from($value);
                 map.push((stringify!($name).to_string(), wrapped));
             )*

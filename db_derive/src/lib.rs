@@ -105,8 +105,6 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
         }
     };
 
-    println!("{generator}");
-
     generator.into()
 }
 
