@@ -125,4 +125,5 @@ impl ToString for DBStructs {
 pub struct Course {
     pub id: i32,
     pub name: CryptString,
+    pub user_id: i32,
 }

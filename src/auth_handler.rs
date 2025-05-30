@@ -4,7 +4,7 @@ use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, Salt, SaltString},
 };
-use axum::{extract::State, http::HeaderValue, routing::get, Json, Router};
+use axum::{extract::State, http::{HeaderValue, StatusCode}, routing::get, Json, Router};
 use chrono::{Days, Utc};
 use log::{error, info, warn};
 use rand::{TryRngCore, rngs::OsRng};
@@ -37,39 +37,17 @@ struct LogoutRequest {
     token: String,
 }
 
-/// enum used for login status
-#[derive(Deserialize, Serialize, Debug)]
-enum LoginStatus {
-    Success,
-    Failure,
-    InternalFailure,
-}
-/// struct used for login response
+/// struct used for login / register response
 #[derive(Deserialize, Serialize, Debug)]
 struct LoginResponse {
-    login_status: LoginStatus,
-    token: Option<String>,
-}
-
-/// enum used for register status
-#[derive(Deserialize, Serialize, Debug)]
-enum RegisterStatus {
-    Success,
-    InternalFailure,
-    UsernameTakenFailure,
-}
-/// struct used for register response
-#[derive(Deserialize, Serialize, Debug)]
-struct RegisterResponse {
-    register_status: RegisterStatus,
-    token: Option<String>,
+    token: String,
 }
 
 /// handler for registration requests
 async fn handle_register<DB: DBInterface + Send + Sync>(
     State(state): State<Arc<AppState<DB>>>,
     Json(request): Json<LoginRequest>,
-) -> Json<RegisterResponse> {
+) -> Result<Json<LoginResponse>, StatusCode> {
     info!("Register request for new user {}", request.username);
     // generate salt
     let mut salt_bytes = [0u8; Salt::RECOMMENDED_LENGTH];
@@ -79,10 +57,7 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
     // salt generation error
     if result.is_err() || salt.is_err() {
         error!("Failed to generate salt!");
-        return Json(RegisterResponse {
-            register_status: RegisterStatus::InternalFailure,
-            token: None,
-        });
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
     let salt = salt.unwrap();
 
@@ -92,10 +67,7 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
     // hashing error
     if password_hash.is_err() {
         error!("Failed to hash password!");
-        return Json(RegisterResponse {
-            register_status: RegisterStatus::InternalFailure,
-            token: None,
-        });
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
     let password_hash = password_hash.unwrap();
 
@@ -105,10 +77,7 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
 
     if result.is_err() {
         info!("User tried to register with already taken username.");
-        return Json(RegisterResponse {
-            register_status: RegisterStatus::UsernameTakenFailure,
-            token: None,
-        });
+        return Err(StatusCode::CONFLICT);
     }
     let user_id = result.unwrap();
 
@@ -128,20 +97,16 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
     if remote_token.is_err() {
         // internal decryption error or db error
         error!("Generating remote token failed!");
-        return Json(RegisterResponse {
-            register_status: RegisterStatus::InternalFailure,
-            token: None,
-        });
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
     let remote_token = remote_token.unwrap();
 
     info!("Registered new user {}", request.username);
 
     // build response
-    Json(RegisterResponse {
-        register_status: RegisterStatus::Success,
-        token: Some(remote_token),
-    })
+    Ok(Json(LoginResponse {
+        token: remote_token,
+    }))
 }
 
 const TOKEN_EXPIRE: u64 = 14; // days after which a token expires
@@ -149,7 +114,7 @@ const TOKEN_EXPIRE: u64 = 14; // days after which a token expires
 async fn handle_login<DB: DBInterface + Send + Sync>(
     State(state): State<Arc<AppState<DB>>>,
     Json(request): Json<LoginRequest>,
-) -> Json<LoginResponse> {
+) -> Result<Json<LoginResponse>, StatusCode> {
     info!("Login request from user {}", request.username);
 
     let user = state.db.get_user_by_username(&request.username);
@@ -158,10 +123,7 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
         // User has not been found or an error occurred
         // FIXME: prevent username bruteforce (artificial delay)
         warn!("User tried to log in with non existant user {}.\nPotential brute-force attack, watch out for too many of these warnings.", request.username);
-        return Json(LoginResponse {
-            login_status: LoginStatus::Failure,
-            token: None,
-        });
+        return Err(StatusCode::UNAUTHORIZED);
     }
     let user = user.unwrap();
 
@@ -171,12 +133,7 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
 
     if result.is_err() {
         warn!("User {} entered wrong password!", request.username);
-
-        // Password does not match
-        return Json(LoginResponse {
-            login_status: LoginStatus::Failure,
-            token: None,
-        });
+        return Err(StatusCode::UNAUTHORIZED);
     }
 
     // password matches -> generate token
@@ -185,20 +142,16 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
     if remote_token.is_err() {
         // internal decryption error or db error
         error!("Generating remote token failed!");
-        return Json(LoginResponse {
-            login_status: LoginStatus::InternalFailure,
-            token: None,
-        });
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
     let remote_token = remote_token.unwrap();
 
     info!("Login successful, returning new remote token to Client!");
 
     // build response
-    Json(LoginResponse {
-        login_status: LoginStatus::Success,
-        token: Some(remote_token),
-    })
+    Ok(Json(LoginResponse {
+        token: remote_token,
+    }))
 }
 
 

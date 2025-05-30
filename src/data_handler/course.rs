@@ -1,17 +1,14 @@
 use std::sync::Arc;
 
-use axum::{Json, extract::State, http::HeaderMap};
+use axum::{extract::State, http::{HeaderMap, StatusCode}, Json};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AppState,
-    auth_handler::{decrypt_local_token_for, verify_token},
-    crypt::{Cryptable, crypt_types::CryptString},
-    db::{DBInterface, DBStructs, Course, sql_helper::SQLWhereValue},
+    auth_handler::{decrypt_local_token_for, verify_token}, crypt::{crypt_types::CryptString, Cryptable}, db::{sql_helper::SQLWhereValue, Course, DBInterface, DBStructs}, select_fields, AppState
 };
 
-use super::EditResponse;
+use super::IDResponse;
 
 /// struct for sending and receiving the course data type
 #[derive(Deserialize, Serialize, Debug)]
@@ -19,27 +16,26 @@ pub struct CourseSend {
     id: i32,
     name: String,
 }
-
-pub async fn handle_get_course<DB: DBInterface + Send + Sync>(
-    State(state): State<Arc<AppState<DB>>>,
-) {
+/// struct for requesting a course (or multiple)
+#[derive(Deserialize, Serialize, Debug)]
+pub struct CourseRequest {
+    id: i32,
 }
 
-pub async fn handle_new_course<DB: DBInterface + Send + Sync>(
+pub async fn handle_get_course<DB: DBInterface + Send + Sync>(
     headers: HeaderMap,
     State(state): State<Arc<AppState<DB>>>,
-    Json(request): Json<CourseSend>,
-) -> Json<EditResponse> {
-    info!("Course creation / edit requested!");
+    Json(request): Json<CourseRequest>,
+) -> Result<Json<Vec<CourseSend>>, StatusCode> {
+    info!("Course read requested!");
 
     let auth_header = headers.get("authorization");
-
     // verify that the token is valid
     let verified_token = verify_token(auth_header, state.clone());
     if verified_token.is_err() {
         warn!("Authentication failure, invalid token!");
         // invalid token, authentication failure
-        return Json(EditResponse::AuthFailure);
+        return Err(StatusCode::UNAUTHORIZED);
     }
     let (user_id, remote_token_id, remote_token) = verified_token.unwrap();
 
@@ -56,7 +52,78 @@ pub async fn handle_new_course<DB: DBInterface + Send + Sync>(
             "Failed to decrypt local token with remote token (id: {})",
             remote_token_id
         );
-        return Json(EditResponse::InternalFailure);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+    let local_token = local_token.unwrap();
+
+    // retrieve db data
+    // check if id < 0 => get all courses for the current user otherwise filter id
+    let params = if request.id < 0 {
+        select_fields! {
+            user_id: user_id,
+        }
+    } else {
+        select_fields! {
+            user_id: user_id,
+            id: request.id,
+        }
+    };
+
+    let entries = state.db.select_entries::<Course>(params);
+    if entries.is_err() {
+        error!("Error while querying DB! Tried to get Course information.");
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    let entries_send: Result<Vec<CourseSend>, StatusCode> = entries.unwrap().iter().map(|course| {
+        let name = course.name.decrypt(local_token.as_bytes(), &state.crypt_provider);
+        if name.is_err() {
+            error!("Error while decrypting Course!");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+        Ok(CourseSend {
+            id: course.id,
+            name: name.unwrap()
+        })
+    }).collect();
+    let entries_send = entries_send?;
+
+    info!("Course read successful, building response!");
+    Ok(Json(entries_send))
+}
+
+pub async fn handle_new_course<DB: DBInterface + Send + Sync>(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState<DB>>>,
+    Json(request): Json<CourseSend>,
+) -> Result<Json<IDResponse>, StatusCode> {
+    info!("Course creation / edit requested!");
+
+    let auth_header = headers.get("authorization");
+
+    // verify that the token is valid
+    let verified_token = verify_token(auth_header, state.clone());
+    if verified_token.is_err() {
+        warn!("Authentication failure, invalid token!");
+        // invalid token, authentication failure
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let (user_id, remote_token_id, remote_token) = verified_token.unwrap();
+
+    // decrypt the corresponding local token
+    let local_token = decrypt_local_token_for(
+        user_id,
+        &DBStructs::Course,
+        remote_token_id,
+        &remote_token,
+        state.clone(),
+    );
+    if local_token.is_err() {
+        error!(
+            "Failed to decrypt local token with remote token (id: {})",
+            remote_token_id
+        );
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
     let local_token = local_token.unwrap();
 
@@ -69,21 +136,21 @@ pub async fn handle_new_course<DB: DBInterface + Send + Sync>(
 
         let id = state
             .db
-            .new_entry::<Course>(vec![SQLWhereValue::Blob(name.data_crypt)]);
+            .new_entry::<Course>(vec![SQLWhereValue::Blob(name.data_crypt), SQLWhereValue::Int32(user_id)]);
         if id.is_err() {
             error!(
                 "Failed to insert new course into db! (user id: {})",
                 user_id
             );
-            return Json(EditResponse::InternalFailure);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
         info!("Course creation successful.");
 
-        Json(EditResponse::Success(id.unwrap()))
+        Ok(Json(IDResponse { id: id.unwrap() }))
     } else {
         info!("Authentication successful, edit requested.");
         // TODO: edit entry
-        Json(EditResponse::Success(0))
+        Ok(Json(IDResponse { id: 0 }))
     }
 }
 

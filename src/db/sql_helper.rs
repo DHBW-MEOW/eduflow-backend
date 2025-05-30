@@ -32,9 +32,9 @@ impl From<Vec<u8>> for SQLWhereValue {
 macro_rules! select_fields {
     ( $( $name:ident : $value:expr ),* $(,)? ) => {
         {
-            let mut map: Vec<(String, db::sql_helper::SQLWhereValue)> = Vec::new();
+            let mut map: Vec<(String, crate::db::sql_helper::SQLWhereValue)> = Vec::new();
             $(
-                let wrapped = db::sql_helper::SQLWhereValue::from($value);
+                let wrapped = crate::db::sql_helper::SQLWhereValue::from($value);
                 map.push((stringify!($name).to_string(), wrapped));
             )*
             map

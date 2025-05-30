@@ -28,12 +28,11 @@ pub fn data_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<
         .with_state(state)
 }
 // general structs
+
+/// response with an id
 #[derive(Deserialize, Serialize, Debug)]
-enum EditResponse {
-    Success(i32),
-    IDNotFound,
-    InternalFailure,
-    AuthFailure,
+struct IDResponse {
+    id: i32
 }
 
 // objects
