@@ -29,8 +29,11 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
     }
 
     // prepare sql strings
+    // sql string with field name and data type
     let mut db_table = "id INTEGER PRIMARY KEY AUTOINCREMENT".to_string();
+    // sql string with comma seperated list of parameters
     let mut parameter_list = "".to_string();
+    // sql string with ?x annotation required for substitution
     let mut parameter_subst_list = "".to_string();
 
     // populate sql strings (without id)
@@ -41,6 +44,7 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
         db_table.push_str(format!(",{} {}", field_name, type_str).as_str());
         parameter_list.push_str(format!("{field_name},").as_str());
         parameter_subst_list.push_str(format!("?{},", i + 1).as_str());
+        //parameter_where.push(value);
 
     });
 
@@ -60,7 +64,29 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
                 format!("INSERT INTO {} ({}) VALUES ({})", #struct_name_string, #parameter_list, #parameter_subst_list)
             }
 
-            // TODO: db select and modify
+            // TODO: db modify
+            pub fn get_db_select(where_fields: Vec<&String>) -> String {
+                // id is excluded in parameter_list
+                let mut db_select = format!("SELECT id, {} FROM {}", #parameter_list, #struct_name_string);
+
+                if where_fields.is_empty() {
+                    return db_select;
+                }
+
+                // we have at least one where condition:
+                db_select.push_str(" WHERE");
+
+                where_fields.iter().enumerate().for_each(|(i, field)| {
+                    // field + 1 because sql parameters substitution begins at 1 and not 0
+                    db_select.push_str(format!(" {} = ?{} AND", field, i + 1).as_str());
+                });
+
+                // we added one AND to much, return this instantely
+                db_select.strip_suffix(" AND").unwrap().to_string()
+            }
+
+
+
         }
     };
 
@@ -113,6 +139,7 @@ fn get_sql_type(field_type: &Type) -> String {
         _ => "BLOB".into()
     }
 }
+
 
 
 #[cfg(test)]
