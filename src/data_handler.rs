@@ -4,7 +4,7 @@ use axum::{extract::State, http::HeaderMap, routing::{delete, get, post}, Json, 
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 
-use crate::{auth_handler::verify_token, crypt::{crypt_types::CryptString, Cryptable}, db::{sql_helper::SQLWhereValue, DBInterface, DBStructs, Module}, AppState};
+use crate::{auth_handler::{decrypt_local_token_for, verify_token}, crypt::{crypt_types::CryptString, Cryptable}, db::{sql_helper::SQLWhereValue, DBInterface, DBStructs, Module}, AppState};
 
 
 /// This function defines the authentication routes for the application.
@@ -61,30 +61,11 @@ async fn handle_new_module<DB: DBInterface + Send + Sync>(headers: HeaderMap, St
     }
     let (user_id, remote_token_id, remote_token) = verified_token.unwrap();
     
-    // get the neccessary local token and decrypt it
-    let local_token_pwcrypt = state.db.get_local_token_by_used_for_pwcrypt(user_id, &DBStructs::Module);
-    if local_token_pwcrypt.is_err() {
-        // there are multiple local tokens for the same purpose and user or something else has gone wrong
-        error!("Could not retrieve local token for user id: {}, used for Module! Local tokens corrupted!", user_id);
-        return Json(EditResponse::InternalFailure);
-    }
-    let local_token_pwcrypt = local_token_pwcrypt.unwrap();
-
-    // get the rt encrypted version of it:
-    let local_token_rtcrypt = state.db.get_local_token_by_id_rtcrypt(local_token_pwcrypt.id, remote_token_id);
-    if local_token_rtcrypt.is_err() {
-        // the version encrypted by the remote token is missing
-        error!("Could not retrieve local token (id: {}) encrypted by remote token (id: {}), encrypted version missing?", local_token_pwcrypt.id, remote_token_id);
-        return Json(EditResponse::InternalFailure);
-    }
-    let local_token_rt_crypt = local_token_rtcrypt.unwrap();
-    
-    // decrypt the local token
-    let local_token = local_token_rt_crypt.local_token_crypt.decrypt(remote_token.as_bytes(), &state.crypt_provider);
+    // decrypt the corresponding local token
+    let local_token = decrypt_local_token_for(user_id, &DBStructs::Module, remote_token_id, &remote_token, state.clone());
     if local_token.is_err() {
-        // decryption failure
-        error!("Failed to decrypt local token (id:{})", local_token_rt_crypt.local_token_id);
-        return Json(EditResponse::InternalFailure)
+        error!("Failed to decrypt local token with remote token (id: {})", remote_token_id);
+        return Json(EditResponse::InternalFailure);
     }
     let local_token = local_token.unwrap();
 

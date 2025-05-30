@@ -284,6 +284,18 @@ pub fn verify_token<DB: DBInterface + Send + Sync>(auth_header: Option<&HeaderVa
 
 }
 
+pub fn decrypt_local_token_for<DB: DBInterface + Send + Sync>(user_id: i32, used_for: &DBStructs, remote_token_id: i32, remote_token: &str, state: Arc<AppState<DB>>) -> Result<String, Box<dyn Error>>{
+    // get the neccessary local token and decrypt it
+    let local_token_pwcrypt = state.db.get_local_token_by_used_for_pwcrypt(user_id, used_for)?;
+    // get the rt encrypted version of it:
+    let local_token_rtcrypt = state.db.get_local_token_by_id_rtcrypt(local_token_pwcrypt.id, remote_token_id)?;
+    
+    // decrypt the local token
+    let local_token = local_token_rtcrypt.local_token_crypt.decrypt(remote_token.as_bytes(), &state.crypt_provider)?;
+    
+    Ok(local_token)
+}
+
 /// generates and adds a password encrypted local token to the Database
 pub fn add_new_local_token<DB: DBInterface + Send + Sync>(user_id: i32, password: &str, used_for: &DBStructs, state: Arc<AppState<DB>>) -> Result<(), Box<dyn Error>>{
     let local_token = generate_token();
