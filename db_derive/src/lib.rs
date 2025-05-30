@@ -96,7 +96,7 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
             }
 
             // rusqlite specific, converts a ruslite row into the struct itself
-            fn row_to_struct(row: &rusqlite::Row) -> Result<Self, Box<dyn std::error::Error>> {
+            fn row_to_struct(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
                 Ok(Self {
                     #(#field_assignments),*
                 })

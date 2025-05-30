@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use simple_crypt::{decrypt, encrypt};
 
 use super::CryptProvider;
@@ -6,12 +8,12 @@ use super::CryptProvider;
 pub struct SimpleCryptProv {}
 
 impl CryptProvider for SimpleCryptProv {
-    fn encrypt(data: &[u8], key: &[u8]) -> Vec<u8> {
-        encrypt(data, key).expect("fail") // FIXME: remove expect 
+    fn encrypt(data: &[u8], key: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
+        Ok(encrypt(data, key)?)
     }
 
-    fn decrypt(data_crypt: &[u8], key: &[u8]) -> Vec<u8> {
-        decrypt(data_crypt, key).expect("decrypt fail") // FIXME: remove expect -> panics on wrong passwd
+    fn decrypt(data_crypt: &[u8], key: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
+        Ok(decrypt(data_crypt, key)?)
     }
 }
 

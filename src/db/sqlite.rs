@@ -5,9 +5,9 @@ use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{params, ToSql};
 
-use crate::crypt::crypt_types::{CryptI32, CryptString};
+use crate::crypt::crypt_types::CryptString;
 
-use super::{sql_helper::SQLGenerate, DBInterface, LocalTokenPWCrypt, LocalTokenRTCrypt, RemoteToken, User};
+use super::{sql_helper::{SQLGenerate, SQLWhereValue}, DBInterface, DBStructs, LocalTokenPWCrypt, LocalTokenRTCrypt, RemoteToken, User};
 
 pub struct SqliteDatabase {
     pool: Arc<Pool<SqliteConnectionManager>>,
@@ -55,7 +55,8 @@ impl SqliteDatabase {
             "CREATE TABLE IF NOT EXISTS pwcrypt_local_token (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
-                local_token BLOB NOT NULL
+                local_token BLOB NOT NULL,
+                used_for TEXT NOT NULL
             )", 
             [],
         )?;
@@ -126,21 +127,23 @@ impl DBInterface for SqliteDatabase {
         Ok(user)    
     }
     
-    fn new_user(&self, username: &str, password_hash: &str) -> Result<(), Box<dyn Error>> {
+    fn new_user(&self, username: &str, password_hash: &str) -> Result<i32, Box<dyn Error>> {
         let conn = self.get_conn()?;
 
         let sql = "INSERT INTO user (username, password_hash) VALUES (?1, ?2)";
         conn.execute(sql, params![username, password_hash])?;
         
         debug!("Created new user");
-        Ok(())
+
+        let id = conn.last_insert_rowid();
+        Ok(id.try_into().expect("DB Ids exceed i32"))
     }
 
-    fn new_local_token_pwcrypt(&self, user_id: i32, token_crypt: CryptString) -> Result<(), Box<dyn Error>> {
+    fn new_local_token_pwcrypt(&self, user_id: i32, token_crypt: &CryptString, used_for: &DBStructs) -> Result<(), Box<dyn Error>> {
         let conn = self.get_conn()?;
 
-        let sql = "INSERT INTO pwcrypt_local_token (user_id, local_token) VALUES (?1, ?2)";
-        conn.execute(sql, params![user_id, token_crypt.data_crypt])?;
+        let sql = "INSERT INTO pwcrypt_local_token (user_id, local_token, used_for) VALUES (?1, ?2, ?3)";
+        conn.execute(sql, params![user_id, token_crypt.data_crypt, used_for.to_string()])?;
 
         debug!("Created new user bound local token (password encrypted)");
 
@@ -150,7 +153,7 @@ impl DBInterface for SqliteDatabase {
     fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, decryptable_by_rt_id: i32, valid_until: &chrono::NaiveDateTime) -> Result<(), Box<dyn Error>> {
         let conn = self.get_conn()?;
 
-        let sql = "INSERT INTO rtcrypt_local_token (local_token_id, local_token, decrypt_by_rt_id, valid_until) VALUES (?1, ?2, ?3)";
+        let sql = "INSERT INTO rtcrypt_local_token (local_token_id, local_token, decrypt_by_rt_id, valid_until) VALUES (?1, ?2, ?3, ?4)";
         conn.execute(sql, params![local_token_id, local_token_crypt.data_crypt, decryptable_by_rt_id, valid_until])?;
 
         debug!("Created new remote token encrypted local token");
@@ -160,12 +163,13 @@ impl DBInterface for SqliteDatabase {
     
     fn get_local_tokens_by_user_pwcrypt(&self, user_id: i32) -> Result<Vec<LocalTokenPWCrypt>, Box<dyn Error>> {
         let conn = self.get_conn()?;
-        let mut stmt = conn.prepare("SELECT lt.id, lt.user_id, lt.local_token FROM pwcrypt_local_token lt WHERE lt.user_id = ?1")?;
+        let mut stmt = conn.prepare("SELECT lt.id, lt.user_id, lt.local_token, lt.used_for FROM pwcrypt_local_token lt WHERE lt.user_id = ?1")?;
         let local_tokens = stmt.query_map(params![user_id], |row| {
             Ok(LocalTokenPWCrypt {
                 id: row.get(0)?,
                 user_id: row.get(1)?,
                 token_crypt: CryptString { data_crypt: row.get(2)? },
+                used_for: DBStructs::from(row.get::<usize, String>(3)?),
             })
         })?;
 
@@ -174,14 +178,15 @@ impl DBInterface for SqliteDatabase {
         Ok(local_tokens)
     }
     
-    fn get_local_token_by_id_pwcrypt(&self, local_token_id: i32) -> Result<LocalTokenPWCrypt, Box<dyn Error>> {
+    fn get_local_token_by_used_for_pwcrypt(&self, user_id: i32, used_for: &DBStructs) -> Result<LocalTokenPWCrypt, Box<dyn Error>> {
         let conn = self.get_conn()?;
-        let sql = "SELECT lt.id, lt.user_id, lt.local_token FROM pwcrypt_local_token lt WHERE lt.id = ?1";
-        let local_token = conn.query_row(sql, params![local_token_id], |row| {
+        let sql = "SELECT lt.id, lt.user_id, lt.local_token, lt.used_for FROM pwcrypt_local_token lt WHERE lt.id = ?1 AND lt.used_for = ?2";
+        let local_token = conn.query_row(sql, params![user_id, used_for.to_string()], |row| {
             Ok(LocalTokenPWCrypt {
                 id: row.get(0)?,
                 user_id: row.get(1)?,
                 token_crypt: CryptString { data_crypt: row.get(2)? },
+                used_for: DBStructs::from(row.get::<usize, String>(3)?),
             })
         })?;
 
@@ -208,10 +213,10 @@ impl DBInterface for SqliteDatabase {
     }
     */
     
-    fn get_local_token_by_id_rtcrypt(&self, local_token_id: i32) -> Result<LocalTokenRTCrypt, Box<dyn Error>> {
+    fn get_local_token_by_id_rtcrypt(&self, local_token_id: i32, remote_token_id: i32) -> Result<LocalTokenRTCrypt, Box<dyn Error>> {
         let conn = self.get_conn()?;
-        let sql = "SELECT lt.id, lt.local_token_id, lt.local_token, lt.decrypt_by_rt_id, lt.valid_until FROM rtcrypt_local_token lt WHERE lt.local_token_id = ?1";
-        let local_token = conn.query_row(sql, params![local_token_id], |row| {
+        let sql = "SELECT lt.id, lt.local_token_id, lt.local_token, lt.decrypt_by_rt_id, lt.valid_until FROM rtcrypt_local_token lt WHERE lt.local_token_id = ?1 AND lt.decrypt_by_rt_id = ?2";
+        let local_token = conn.query_row(sql, params![local_token_id, remote_token_id], |row| {
             Ok(LocalTokenRTCrypt {
                 id: row.get(0)?,
                 local_token_id: row.get(1)?,
@@ -237,7 +242,7 @@ impl DBInterface for SqliteDatabase {
     
     fn get_remote_token(&self, token_id: i32) -> Result<RemoteToken, Box<dyn Error>> {
         let conn = self.get_conn()?;
-        let sql = "SELECT rt.id, rt.rt_hash, rt.user_id FROM remote_token WHERE rt.id = ?1";
+        let sql = "SELECT rt.id, rt.rt_hash, rt.user_id FROM remote_token rt WHERE rt.id = ?1";
         let remote_token = conn.query_row(sql, params![token_id], |row| {
             Ok(RemoteToken {
                 id: row.get(0)?,
@@ -290,7 +295,7 @@ impl DBInterface for SqliteDatabase {
 
     /// creates a new db_entry, returns the resulting id
     /// params need to be in the same order as defined in the struct, do not include the id field.
-    fn new_entry<T: SQLGenerate>(&self, params: Vec<super::sql_helper::SQLWhereValue>) -> Result<i32, Box<dyn Error>> {
+    fn new_entry<T: SQLGenerate>(&self, params: Vec<SQLWhereValue>) -> Result<i32, Box<dyn Error>> {
         let conn = self.get_conn()?;
         let sql = T::get_db_insert();
         let params: Vec<&dyn ToSql> = params.iter().map(|param| {
@@ -306,6 +311,28 @@ impl DBInterface for SqliteDatabase {
 
         let id = conn.last_insert_rowid();
         Ok(id.try_into().expect("Id value exceeding i32"))
+    }
+    
+    fn select_entries<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>) -> Result<Vec<T>, Box<dyn Error>> {
+        let conn = self.get_conn()?;
+        let sql = T::get_db_select(params.iter().map(|entry| &entry.0).collect());
+        let mut stmt = conn.prepare(&sql)?;
+
+        let params: Vec<&dyn ToSql> = params.iter().map(|e| &e.1).map(|param| {
+            match param {
+                super::sql_helper::SQLWhereValue::Text(s) => s as &dyn ToSql,
+                super::sql_helper::SQLWhereValue::Int32(i) => i as &dyn ToSql,
+                super::sql_helper::SQLWhereValue::Blob(items) => items as &dyn ToSql,
+                super::sql_helper::SQLWhereValue::Float64(f) => f as &dyn ToSql,
+            }
+        }).collect();
+
+        let entries = stmt.query_map(params.as_slice(), |row| {
+            Ok(T::row_to_struct(row)?)
+        })?;
+
+        let local_tokens: Vec<T> = entries.collect::<Result<Vec<_>, _>>()?;
+        Ok(local_tokens)
     }
     
     

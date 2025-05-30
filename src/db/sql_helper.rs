@@ -32,11 +32,11 @@ impl From<Vec<u8>> for SQLWhereValue {
 macro_rules! select_fields {
     ( $( $name:ident : $value:expr ),* $(,)? ) => {
         {
-            let mut map: ::std::collections::HashMap<String, db::sql_helper::SQLWhereValue> = ::std::collections::HashMap::new();
+            let mut map: Vec<(String, db::sql_helper::SQLWhereValue)> = Vec::new();
             $(
                 println!("Got {} = {:?}", stringify!($name), $value);
                 let wrapped = db::sql_helper::SQLWhereValue::from($value);
-                map.insert(stringify!($name).to_string(), wrapped);
+                map.push((stringify!($name).to_string(), wrapped));
             )*
             map
         }
@@ -53,5 +53,5 @@ pub trait SQLGenerate {
     /// where parameters have to be passed into where fields and values will be substituted with ?1, ?2, ... ?n
     fn get_db_select(where_fields: Vec<&String>) -> String;
     /// converts a rusqlite Row into an object of itself
-    fn row_to_struct(row: &rusqlite::Row) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized;
+    fn row_to_struct(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> where Self: Sized;
 }

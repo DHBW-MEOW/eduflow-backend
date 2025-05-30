@@ -11,7 +11,7 @@ use rand::{TryRngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
 use token_gen::generate_token;
 
-use crate::{crypt::{crypt_types::CryptString, Cryptable}, db::DBInterface, AppState};
+use crate::{crypt::{crypt_types::CryptString, Cryptable}, db::{DBInterface, DBStructs}, AppState};
 
 mod token_gen;
 
@@ -108,16 +108,37 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
             token: None,
         });
     }
+    let user_id = result.unwrap();
 
-    // all is right -> generate token so user can log in immedieately
-    // TODO: Generate token
+    // all is right -> generate tokens so user can log in immedieately
 
+    // generate local tokens for future use, every DBStructs element gets a local token
+    DBStructs::get_iter().for_each(|variant| {
+            let result = add_new_local_token(user_id, &request.password, variant, state.clone());
+            if result.is_err() {
+                error!("Failed to generate local token!, user id: {}, registration partially successfull!", user_id);
+            }
+    });
+
+    // generate remote token for immediate use
+    let remote_token = create_remote_token(user_id, request.password, state, TOKEN_EXPIRE);
+
+    if remote_token.is_err() {
+        // internal decryption error or db error
+        error!("Generating remote token failed!");
+        return Json(RegisterResponse {
+            register_status: RegisterStatus::InternalFailure,
+            token: None,
+        });
+    }
+    let remote_token = remote_token.unwrap();
 
     info!("Registered new user {}", request.username);
 
+    // build response
     Json(RegisterResponse {
         register_status: RegisterStatus::Success,
-        token: None,
+        token: Some(remote_token),
     })
 }
 
@@ -158,8 +179,6 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
     }
 
     // password matches -> generate token
-    // TODO: generate token
-
     let remote_token = create_remote_token(user.id, request.password, state, TOKEN_EXPIRE);
 
     if remote_token.is_err() {
@@ -172,6 +191,7 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
     }
     let remote_token = remote_token.unwrap();
 
+    // build response
     Json(LoginResponse {
         login_status: LoginStatus::Success,
         token: Some(remote_token),
@@ -205,6 +225,7 @@ fn create_remote_token<DB: DBInterface + Send + Sync>(user_id: i32, password: St
 
     // insert hashed token into db
     let remote_token_id = state.db.new_remote_token(&token_hashed, user_id)?;
+
     
     // re-encrypt every local-token the user posseses, this can also be limited to only some local-tokens to restrict permissions
     state.db.get_local_tokens_by_user_pwcrypt(user_id)?.iter().try_for_each(|lt| {
@@ -242,6 +263,7 @@ fn split_auth_header(auth_header: &str) -> Result<(i32, String), Box<dyn Error>>
 /// returns user_id, token_id and the token itself on success
 /// will return err if token is invalid]
 pub fn verify_token<DB: DBInterface + Send + Sync>(auth_header: Option<&HeaderValue>, state: Arc<AppState<DB>>) -> Result<(i32, i32, String), Box<dyn Error>> {
+    // TODO check token expiry date
     // auth header validation
     let auth_header = auth_header.ok_or("Invalid Token")?.to_str()?;
 
@@ -260,4 +282,13 @@ pub fn verify_token<DB: DBInterface + Send + Sync>(auth_header: Option<&HeaderVa
         Err(_) => Err("Invalid Token".into()),
     }
 
+}
+
+/// generates and adds a password encrypted local token to the Database
+pub fn add_new_local_token<DB: DBInterface + Send + Sync>(user_id: i32, password: &str, used_for: &DBStructs, state: Arc<AppState<DB>>) -> Result<(), Box<dyn Error>>{
+    let local_token = generate_token();
+    let local_token_crypt = CryptString::encrypt(&local_token, password.as_bytes(), &state.crypt_provider);
+
+    state.db.new_local_token_pwcrypt(user_id, &local_token_crypt, used_for)?;
+    Ok(())
 }

@@ -1,8 +1,8 @@
-use std::sync::Arc;
+use std::{sync::Arc, vec};
 
 use axum::{routing::get, Router};
 use crypt::crypt_provider::CryptProviders;
-use db::{sql_helper::SQLWhereValue, sqlite::SqliteDatabase, DBInterface, ModuleDB, TestDummy};
+use db::{sql_helper::SQLWhereValue, sqlite::SqliteDatabase, DBInterface, Module, TestDummy};
 use log::info;
 use db::sql_helper::SQLGenerate;
 
@@ -33,7 +33,7 @@ async fn main() {
 
     info!("{}", TestDummy::get_db_table_create());
     info!("{}", TestDummy::get_db_insert());
-    info!("{}", TestDummy::get_db_select(map.keys().collect()));
+    info!("{}", TestDummy::get_db_select(map.iter().map(|e| &e.0).collect()));
     // test code end
 
     let shared_state = Arc::new(AppState {
@@ -42,8 +42,11 @@ async fn main() {
     });
 
     // test code
-    shared_state.db.create_table_for_type::<ModuleDB>().unwrap();
-    shared_state.db.new_entry::<ModuleDB>(vec![SQLWhereValue::Blob(vec![1,2,3]), SQLWhereValue::Float64(3.4)]).unwrap();
+    shared_state.db.create_table_for_type::<Module>().unwrap();
+    //shared_state.db.new_entry::<Module>(vec![SQLWhereValue::Blob(vec![4,5,8])]).unwrap();
+
+    let entries = shared_state.db.select_entries::<Module>(vec![("name".to_string(), SQLWhereValue::Blob(vec![4,5,6]))]).unwrap();
+    println!("{:?}", entries);
     // test code end
 
     let auth_router = auth_handler::auth_router(shared_state.clone());
