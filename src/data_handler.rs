@@ -37,7 +37,11 @@ enum EditResponse {
 }
 
 // objects
+// FIXME: maybe encrypt dates? booleans?
 
 // course: consists of: name (cryptstring)
-// topic: consists of: course_id (foreign key), name (cryptstring), (details (cryptstring), if not in study_goal)
-// study_goal: consists of: topic_id (foreign key), 
+// topic: consists of: course_id (foreign key), name (cryptstring), details (cryptstring)
+// study_goal: consists of: topic_id (foreign key), deadline (date), 
+// exam: consists of: course_id (foreign key), name (cryptstring), date (date)
+
+// todo: consists of: name (cryptstring), deadline (date), details (crypstring), completed (bool)
