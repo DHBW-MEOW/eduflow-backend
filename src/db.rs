@@ -4,7 +4,7 @@ use chrono::NaiveDateTime;
 use db_derive::DBObject;
 use sql_helper::{SQLGenerate, SQLWhereValue};
 
-use crate::crypt::crypt_types::{CryptI32, CryptString};
+use crate::crypt::crypt_types::CryptString;
 
 pub mod sql_helper;
 pub mod sqlite;
@@ -90,7 +90,7 @@ pub struct RemoteToken {
 /// used for generating local tokens (one local token per user per db struct)
 #[derive(Debug)]
 pub enum DBStructs {
-    Module,
+    Course,
 }
 
 impl DBStructs {
@@ -98,7 +98,7 @@ impl DBStructs {
     pub fn get_iter() -> Iter<'static, DBStructs> {
         // NOTE: this array has to be manually extended
         // every enum element needs to be in here
-        static DB_STRUCTS: [DBStructs; 1] = [DBStructs::Module];
+        static DB_STRUCTS: [DBStructs; 1] = [DBStructs::Course];
         DB_STRUCTS.iter()
     }
 }
@@ -106,7 +106,7 @@ impl DBStructs {
 impl From<String> for DBStructs {
     fn from(value: String) -> Self {
         match value.as_str() {
-            "Module" => DBStructs::Module,
+            "Course" => DBStructs::Course,
             _ => panic!()
         }
     }
@@ -115,14 +115,14 @@ impl From<String> for DBStructs {
 impl ToString for DBStructs {
     fn to_string(&self) -> String {
         match self {
-            DBStructs::Module => "Module".to_string(),
+            DBStructs::Course => "Course".to_string(),
         }
     }
 }
 
-/// module db entry
+/// course db entry
 #[derive(Debug, DBObject)]
-pub struct Module {
+pub struct Course {
     pub id: i32,
     pub name: CryptString,
 }

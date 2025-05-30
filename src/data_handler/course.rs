@@ -8,29 +8,29 @@ use crate::{
     AppState,
     auth_handler::{decrypt_local_token_for, verify_token},
     crypt::{Cryptable, crypt_types::CryptString},
-    db::{DBInterface, DBStructs, Module, sql_helper::SQLWhereValue},
+    db::{DBInterface, DBStructs, Course, sql_helper::SQLWhereValue},
 };
 
 use super::EditResponse;
 
-/// struct for sending and receiving the module data type
+/// struct for sending and receiving the course data type
 #[derive(Deserialize, Serialize, Debug)]
-pub struct ModuleSend {
+pub struct CourseSend {
     id: i32,
     name: String,
 }
 
-pub async fn handle_get_module<DB: DBInterface + Send + Sync>(
+pub async fn handle_get_course<DB: DBInterface + Send + Sync>(
     State(state): State<Arc<AppState<DB>>>,
 ) {
 }
 
-pub async fn handle_new_module<DB: DBInterface + Send + Sync>(
+pub async fn handle_new_course<DB: DBInterface + Send + Sync>(
     headers: HeaderMap,
     State(state): State<Arc<AppState<DB>>>,
-    Json(request): Json<ModuleSend>,
+    Json(request): Json<CourseSend>,
 ) -> Json<EditResponse> {
-    info!("Module creation / edit requested!");
+    info!("Course creation / edit requested!");
 
     let auth_header = headers.get("authorization");
 
@@ -46,7 +46,7 @@ pub async fn handle_new_module<DB: DBInterface + Send + Sync>(
     // decrypt the corresponding local token
     let local_token = decrypt_local_token_for(
         user_id,
-        &DBStructs::Module,
+        &DBStructs::Course,
         remote_token_id,
         &remote_token,
         state.clone(),
@@ -69,15 +69,15 @@ pub async fn handle_new_module<DB: DBInterface + Send + Sync>(
 
         let id = state
             .db
-            .new_entry::<Module>(vec![SQLWhereValue::Blob(name.data_crypt)]);
+            .new_entry::<Course>(vec![SQLWhereValue::Blob(name.data_crypt)]);
         if id.is_err() {
             error!(
-                "Failed to insert new module into db! (user id: {})",
+                "Failed to insert new course into db! (user id: {})",
                 user_id
             );
             return Json(EditResponse::InternalFailure);
         }
-        info!("Module creation successful.");
+        info!("Course creation successful.");
 
         Json(EditResponse::Success(id.unwrap()))
     } else {
@@ -87,7 +87,7 @@ pub async fn handle_new_module<DB: DBInterface + Send + Sync>(
     }
 }
 
-pub async fn handle_delete_module<DB: DBInterface + Send + Sync>(
+pub async fn handle_delete_course<DB: DBInterface + Send + Sync>(
     State(state): State<Arc<AppState<DB>>>,
 ) {
 }

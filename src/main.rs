@@ -2,7 +2,7 @@ use std::{sync::Arc, vec};
 
 use axum::{routing::get, Router};
 use crypt::crypt_provider::CryptProviders;
-use db::{sqlite::SqliteDatabase, DBInterface, Module};
+use db::{sqlite::SqliteDatabase, DBInterface, Course};
 use log::info;
 
 mod auth_handler;
@@ -28,10 +28,10 @@ async fn main() {
     });
 
     // test code
-    shared_state.db.create_table_for_type::<Module>().unwrap();
-    //shared_state.db.new_entry::<Module>(vec![SQLWhereValue::Blob(vec![4,5,8])]).unwrap();
+    shared_state.db.create_table_for_type::<Course>().unwrap();
+    //shared_state.db.new_entry::<Course>(vec![SQLWhereValue::Blob(vec![4,5,8])]).unwrap();
 
-    let entries = shared_state.db.select_entries::<Module>(select_fields! {name: vec![4,5,8]}).unwrap();
+    let entries = shared_state.db.select_entries::<Course>(select_fields! {name: vec![4,5,8]}).unwrap();
     println!("{:?}", entries);
     // test code end
 

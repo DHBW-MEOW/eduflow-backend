@@ -8,18 +8,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AppState, db::DBInterface};
 
-mod module;
+mod course;
 
 /// This function defines the authentication routes for the application.
 pub fn data_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<DB>>) -> Router {
     // handles returning data
-    let get_routes = Router::new().route("/module", get(module::handle_get_module));
+    let get_routes = Router::new().route("/course", get(course::handle_get_course));
 
     // handles creating / editing data
-    let new_routes = Router::new().route("/module", post(module::handle_new_module));
+    let new_routes = Router::new().route("/course", post(course::handle_new_course));
 
     // handles deleting data
-    let delete_routes = Router::new().route("/module", delete(module::handle_delete_module));
+    let delete_routes = Router::new().route("/course", delete(course::handle_delete_course));
 
     Router::new()
         .merge(get_routes)
@@ -38,4 +38,6 @@ enum EditResponse {
 
 // objects
 
-// module : consists of name
+// course: consists of: name (cryptstring)
+// topic: consists of: course_id (foreign key), name (cryptstring), (details (cryptstring), if not in study_goal)
+// study_goal: consists of: topic_id (foreign key), 
