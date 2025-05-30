@@ -4,11 +4,11 @@ use axum::{extract::State, http::HeaderMap, routing::{delete, get, post}, Json, 
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::{auth_handler::verify_token, AppState};
+use crate::{auth_handler::verify_token, db::DBInterface, AppState};
 
 
 /// This function defines the authentication routes for the application.
-pub fn data_router(state: Arc<crate::AppState>) -> Router {
+pub fn data_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<DB>>) -> Router {
 
     // handles returning data
     let get_routes = Router::new()
@@ -43,11 +43,11 @@ struct ModuleSend {
     name: String,
 }
 
-async fn handle_get_module(State(state): State<Arc<AppState>>) {
+async fn handle_get_module<DB: DBInterface + Send + Sync>(State(state): State<Arc<AppState<DB>>>) {
 
 }
 
-async fn handle_new_module(headers: HeaderMap, State(state): State<Arc<AppState>>, Json(request): Json<ModuleSend>) -> Json<EditResponse>{
+async fn handle_new_module<DB: DBInterface + Send + Sync>(headers: HeaderMap, State(state): State<Arc<AppState<DB>>>, Json(request): Json<ModuleSend>) -> Json<EditResponse>{
     info!("{:?}", headers);
 
     let auth_header = headers.get("authorization");
@@ -77,7 +77,7 @@ async fn handle_new_module(headers: HeaderMap, State(state): State<Arc<AppState>
     Json(EditResponse::Success)
 }
 
-async fn handle_delete_module(State(state): State<Arc<AppState>>) {
+async fn handle_delete_module<DB: DBInterface + Send + Sync>(State(state): State<Arc<AppState<DB>>>) {
 
 }
 

@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use axum::{routing::get, Router};
 use crypt::crypt_provider::CryptProviders;
-use db::{sqlite::SqliteDatabase, DBInterface, TestDummy};
+use db::{sql_helper::SQLWhereValue, sqlite::SqliteDatabase, DBInterface, ModuleDB, TestDummy};
 use log::info;
+use db::sql_helper::SQLGenerate;
 
 mod auth_handler;
 mod db;
@@ -11,9 +12,10 @@ mod crypt;
 mod data_handler;
 
 // Define the application state that will be shared across handlers
-struct AppState {
+struct AppState<DB: DBInterface + Send + Sync> {
     // db needs to be send and sync because it will be shared across multiple threads
-    db: Box<dyn DBInterface + Send + Sync>,
+    // this can be any struct that implements DBInterface
+    db: Box<DB>,
     crypt_provider: CryptProviders
 }
 
@@ -21,14 +23,28 @@ struct AppState {
 async fn main() {    
     env_logger::init();
 
+    // test code
+    let map = select_fields! {
+        name: "test",
+        id: 1,
+    };
+
+    info!("{:?}", map);
+
     info!("{}", TestDummy::get_db_table_create());
     info!("{}", TestDummy::get_db_insert());
-
+    info!("{}", TestDummy::get_db_select(map.keys().collect()));
+    // test code end
 
     let shared_state = Arc::new(AppState {
         db: Box::new(SqliteDatabase::new("db.sqlite").expect("Failed to create database")),
         crypt_provider: CryptProviders::SimpleCryptProv
     });
+
+    // test code
+    shared_state.db.create_table_for_type::<ModuleDB>().unwrap();
+    shared_state.db.new_entry::<ModuleDB>(vec![SQLWhereValue::Blob(vec![1,2,3]), SQLWhereValue::Float64(3.4)]).unwrap();
+    // test code end
 
     let auth_router = auth_handler::auth_router(shared_state.clone());
     let data_router = data_handler::data_router(shared_state.clone());

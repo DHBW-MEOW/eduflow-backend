@@ -2,6 +2,7 @@ use std::error::Error;
 
 use chrono::NaiveDateTime;
 use db_derive::DBObject;
+use sql_helper::{SQLGenerate, SQLWhereValue};
 
 use crate::crypt::crypt_types::{CryptI32, CryptString};
 
@@ -41,12 +42,11 @@ pub trait DBInterface {
     fn get_remote_token(&self, token_id: i32) -> Result<RemoteToken, Box<dyn Error>>;
 
 
-    // DATA
-    //fn register_struct<T>(&self, dummy_object: T) -> Result<(), Box<dyn Error>>;
-    // dummy related
-    fn new_dummy(&self, name: &str, secret_number: &CryptI32, secret_text: &CryptString, decryptable_by: i32) -> Result<(), Box<dyn Error>>;
-
-    fn get_dummy(&self, id: i32) -> Result<TestDummy, Box<dyn Error>>;
+    // DATA related, using generics and a few macros
+    /// creates a new database table for the type T, which has to have the DBObject derive macro
+    fn create_table_for_type<T: SQLGenerate>(&self) -> Result<(), Box<dyn Error>>;
+    /// enters a new entry into the database table of the type T, a table using create_table_for_type has to be created beforehand.
+    fn new_entry<T: SQLGenerate>(&self, params: Vec<SQLWhereValue>) -> Result<i32, Box<dyn Error>>;
 }
 
 // structs, which are stored inside of the database
@@ -89,8 +89,8 @@ pub struct RemoteToken {
 pub struct TestDummy {
     pub id: i32,
     pub name: String,
-    pub secret_number: CryptI32,
-    pub secret_text: CryptString,
+    pub secret_number: Vec<u8>, // CryptI32,
+    pub secret_text: Vec<u8>, // CryptString,
     pub decryptable_by: i32,
 }
 
@@ -98,6 +98,6 @@ pub struct TestDummy {
 #[derive(DBObject)]
 pub struct ModuleDB {
     pub id: i32,
-    pub name: CryptString,
+    pub name: Vec<u8>, // CryptString,
     pub test_float: f64,
 }

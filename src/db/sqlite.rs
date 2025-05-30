@@ -3,11 +3,11 @@ use std::{error::Error, path::Path, sync::Arc};
 use log::debug;
 use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::params;
+use rusqlite::{params, ToSql};
 
 use crate::crypt::crypt_types::{CryptI32, CryptString};
 
-use super::{DBInterface, LocalTokenPWCrypt, LocalTokenRTCrypt, RemoteToken, TestDummy, User};
+use super::{sql_helper::SQLGenerate, DBInterface, LocalTokenPWCrypt, LocalTokenRTCrypt, RemoteToken, User};
 
 pub struct SqliteDatabase {
     pool: Arc<Pool<SqliteConnectionManager>>,
@@ -253,7 +253,7 @@ impl DBInterface for SqliteDatabase {
     // DATA OBJECTS
     
     // dummy related
-    fn new_dummy(&self, name: &str, number: &CryptI32, text: &CryptString, decryptable_by: i32) -> Result<(), Box<dyn Error>> {
+    /* fn new_dummy(&self, name: &str, number: &CryptI32, text: &CryptString, decryptable_by: i32) -> Result<(), Box<dyn Error>> {
         let conn = self.get_conn()?;
 
         let sql =  "INSERT INTO dummy (name, number, text, decryptable_by) VALUES (?1, ?2, ?3, ?4)";
@@ -269,14 +269,46 @@ impl DBInterface for SqliteDatabase {
             Ok(TestDummy{
                 id: row.get(0)?,
                 name: row.get(1)?,
-                secret_number: CryptI32 { data_crypt: row.get(2)? },
-                secret_text: CryptString { data_crypt: row.get(3)? },
+                secret_number: row.get(2)?,//CryptI32 { data_crypt: row.get(2)? },
+                secret_text: row.get(3)?,//CryptString { data_crypt: row.get(3)? },
                 decryptable_by: row.get(4)?,
             })
         })?;
 
         Ok(dummy)
+    } */
+    
+    // generic fns
+    /// creates and prepares a db table
+    fn create_table_for_type<T: SQLGenerate>(&self) -> Result<(), Box<dyn Error>> {
+        let conn = self.get_conn()?;
+        let sql = T::get_db_table_create();
+        conn.execute(&sql, [])?;
+
+        Ok(())
     }
+
+    /// creates a new db_entry, returns the resulting id
+    /// params need to be in the same order as defined in the struct, do not include the id field.
+    fn new_entry<T: SQLGenerate>(&self, params: Vec<super::sql_helper::SQLWhereValue>) -> Result<i32, Box<dyn Error>> {
+        let conn = self.get_conn()?;
+        let sql = T::get_db_insert();
+        let params: Vec<&dyn ToSql> = params.iter().map(|param| {
+            match param {
+                super::sql_helper::SQLWhereValue::Text(s) => s as &dyn ToSql,
+                super::sql_helper::SQLWhereValue::Int32(i) => i as &dyn ToSql,
+                super::sql_helper::SQLWhereValue::Blob(items) => items as &dyn ToSql,
+                super::sql_helper::SQLWhereValue::Float64(f) => f as &dyn ToSql,
+            }
+        }).collect();
+
+        conn.execute(&sql, params.as_slice())?;
+
+        let id = conn.last_insert_rowid();
+        Ok(id.try_into().expect("Id value exceeding i32"))
+    }
+    
+    
     
     
 }

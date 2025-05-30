@@ -3,6 +3,7 @@ pub enum SQLWhereValue {
     Text(String),
     Int32(i32),
     Blob(Vec<u8>),
+    Float64(f64),
 }
 
 impl From<String> for SQLWhereValue {
@@ -40,4 +41,17 @@ macro_rules! select_fields {
             map
         }
     };
+}
+
+pub trait SQLGenerate {
+    /// returns a sql string to create a database table for the struct
+    fn get_db_table_create() -> String;
+    /// returns a sql string to insert a new row into the database table
+    /// parameters are substituted with ?1, ?2, ... ?n
+    fn get_db_insert() -> String;
+    /// returns a sql string to select rows in a table
+    /// where parameters have to be passed into where fields and values will be substituted with ?1, ?2, ... ?n
+    fn get_db_select(where_fields: Vec<&String>) -> String;
+    /// converts a rusqlite Row into an object of itself
+    fn row_to_struct(row: &rusqlite::Row) -> Result<Self, Box<dyn std::error::Error>> where Self: Sized;
 }

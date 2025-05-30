@@ -47,25 +47,35 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
         //parameter_where.push(value);
 
     });
-
     // remove extra comma
     parameter_list.pop();
     parameter_subst_list.pop();
 
+    // rusqlite specific
+    // rusqlite row assignment
+    let field_assignments = fields.named.iter().enumerate().map(|(i, field)| {
+        let field_name = field.ident.as_ref().unwrap();
+
+        quote! {
+            #field_name: row.get(#i)?
+        }
+    });
     
 
     let generator = quote! {
-        impl #struct_name {
-            pub fn get_db_table_create() -> String {
+        // trait definition in main crate
+        impl crate::db::sql_helper::SQLGenerate for #struct_name {
+            fn get_db_table_create() -> String {
                 format!("CREATE TABLE IF NOT EXISTS {} ({})", #struct_name_string, #db_table)
             }
 
-            pub fn get_db_insert() -> String {
+            fn get_db_insert() -> String {
                 format!("INSERT INTO {} ({}) VALUES ({})", #struct_name_string, #parameter_list, #parameter_subst_list)
             }
 
             // TODO: db modify
-            pub fn get_db_select(where_fields: Vec<&String>) -> String {
+            // generates a sql select statement with a where statement depending on the where_fields (connected with and)
+            fn get_db_select(where_fields: Vec<&String>) -> String {
                 // id is excluded in parameter_list
                 let mut db_select = format!("SELECT id, {} FROM {}", #parameter_list, #struct_name_string);
 
@@ -85,7 +95,12 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
                 db_select.strip_suffix(" AND").unwrap().to_string()
             }
 
-
+            // rusqlite specific, converts a ruslite row into the struct itself
+            fn row_to_struct(row: &rusqlite::Row) -> Result<Self, Box<dyn std::error::Error>> {
+                Ok(Self {
+                    #(#field_assignments),*
+                })
+            }
 
         }
     };

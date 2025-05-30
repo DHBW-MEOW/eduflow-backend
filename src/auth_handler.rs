@@ -11,12 +11,12 @@ use rand::{TryRngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
 use token_gen::generate_token;
 
-use crate::{crypt::{crypt_types::CryptString, Cryptable}, AppState};
+use crate::{crypt::{crypt_types::CryptString, Cryptable}, db::DBInterface, AppState};
 
 mod token_gen;
 
 /// This function defines the authentication routes for the application.
-pub fn auth_router(state: Arc<crate::AppState>) -> Router {
+pub fn auth_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<DB>>) -> Router {
     Router::new()
         .route("/register", get(handle_register))
         .route("/login", get(handle_login))
@@ -66,8 +66,8 @@ struct RegisterResponse {
 }
 
 /// handler for registration requests
-async fn handle_register(
-    State(state): State<Arc<AppState>>,
+async fn handle_register<DB: DBInterface + Send + Sync>(
+    State(state): State<Arc<AppState<DB>>>,
     Json(request): Json<LoginRequest>,
 ) -> Json<RegisterResponse> {
     info!("Register request for new user {}", request.username);
@@ -123,8 +123,8 @@ async fn handle_register(
 
 const TOKEN_EXPIRE: u64 = 14; // days after which a token expires
 /// handler for login requests
-async fn handle_login(
-    State(state): State<Arc<AppState>>,
+async fn handle_login<DB: DBInterface + Send + Sync>(
+    State(state): State<Arc<AppState<DB>>>,
     Json(request): Json<LoginRequest>,
 ) -> Json<LoginResponse> {
     info!("Login request from user {}", request.username);
@@ -179,7 +179,7 @@ async fn handle_login(
 }
 
 
-fn create_remote_token(user_id: i32, password: String, state: Arc<AppState>, valid_days: u64) -> Result<String, Box<dyn Error>> {
+fn create_remote_token<DB: DBInterface + Send + Sync>(user_id: i32, password: String, state: Arc<AppState<DB>>, valid_days: u64) -> Result<String, Box<dyn Error>> {
     let remote_token = generate_token();
 
     let valid_until = Utc::now().naive_utc() + Days::new(valid_days);
@@ -241,7 +241,7 @@ fn split_auth_header(auth_header: &str) -> Result<(i32, String), Box<dyn Error>>
 /// verifies if the token is valid
 /// returns user_id, token_id and the token itself on success
 /// will return err if token is invalid]
-pub fn verify_token(auth_header: Option<&HeaderValue>, state: Arc<AppState>) -> Result<(i32, i32, String), Box<dyn Error>> {
+pub fn verify_token<DB: DBInterface + Send + Sync>(auth_header: Option<&HeaderValue>, state: Arc<AppState<DB>>) -> Result<(i32, i32, String), Box<dyn Error>> {
     // auth header validation
     let auth_header = auth_header.ok_or("Invalid Token")?.to_str()?;
 
