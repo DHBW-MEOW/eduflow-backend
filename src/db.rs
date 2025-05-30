@@ -5,7 +5,7 @@ use db_derive::DBObject;
 
 use crate::crypt::crypt_types::{CryptI32, CryptString};
 
-
+pub mod sql_helper;
 pub mod sqlite;
 
 /// Database interface trait that defines the methods for database operations.
