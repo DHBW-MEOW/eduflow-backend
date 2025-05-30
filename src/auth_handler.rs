@@ -283,7 +283,7 @@ pub fn verify_token<DB: DBInterface + Send + Sync>(auth_header: Option<&HeaderVa
     }
 
 }
-
+/// takes a remote token, the according user id and used for attribute and decrypts the corresponding local token and returns it
 pub fn decrypt_local_token_for<DB: DBInterface + Send + Sync>(user_id: i32, used_for: &DBStructs, remote_token_id: i32, remote_token: &str, state: Arc<AppState<DB>>) -> Result<String, Box<dyn Error>>{
     // get the neccessary local token and decrypt it
     let local_token_pwcrypt = state.db.get_local_token_by_used_for_pwcrypt(user_id, used_for)?;
