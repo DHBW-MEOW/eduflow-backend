@@ -51,6 +51,11 @@ pub trait SQLGenerate {
     /// returns a sql string to select rows in a table
     /// where parameters have to be passed into where fields and values will be substituted with ?1, ?2, ... ?n
     fn get_db_select(where_fields: Vec<&String>) -> String;
+    /// generates a sql UPDATE statement depending on fields (which will be updated) and where_fields (which will be filtered for)
+    fn get_db_update(fields: Vec<&String>, where_fields: Vec<&String>) -> String;
+    /// generates a delete statement depending on fields which will be used as where clause
+    fn get_db_delete(fields: Vec<&String>) -> String;
+
     /// converts a rusqlite Row into an object of itself
     fn row_to_struct(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> where Self: Sized;
 }

@@ -73,7 +73,6 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
                 format!("INSERT INTO {} ({}) VALUES ({})", #struct_name_string, #parameter_list, #parameter_subst_list)
             }
 
-            // TODO: db modify
             // generates a sql select statement with a where statement depending on the where_fields (connected with and)
             fn get_db_select(where_fields: Vec<&String>) -> String {
                 // id is excluded in parameter_list
@@ -93,6 +92,37 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
 
                 // we added one AND to much, return this instantely
                 db_select.strip_suffix(" AND").unwrap().to_string()
+            }
+
+            // generates a sql update statement depending on fields (which will be updated) and where_fields (which will be filtered for)
+            fn get_db_update(fields: Vec<&String>, where_fields: Vec<&String>) -> String {
+                // calculate offset for ? values (we use 1 to fields.len() for fields and fields.len() + 1 till ... for  where fields)
+                let where_i_offset = fields.len();
+
+                // map the fields to the SET sql string
+                let mut fields: String = fields.iter().enumerate().map(|(i, field)| {
+                    format!(" {} = ?{},", field, i + 1)
+                }).collect();
+                fields.pop();
+
+                // map the where fields to the WHERE sql string
+                let where_fields: String = where_fields.iter().enumerate().map(|(i, field)| {
+                    format!(" {} = ?{} AND", field, i + 1 + where_i_offset)
+                }).collect();
+                let where_fields = where_fields.strip_suffix(" AND").unwrap().to_string();
+
+                format!("UPDATE {} SET{} WHERE{}", #struct_name_string, fields, where_fields)
+            }
+
+            // generates a sql delete statement depending on fields, which are used for the where clause
+            fn get_db_delete(fields: Vec<&String>) -> String {
+                // map the where fields to the WHERE sql string
+                let fields: String = fields.iter().enumerate().map(|(i, field)| {
+                    format!(" {} = ?{} AND", field, i + 1)
+                }).collect();
+                let fields = fields.strip_suffix(" AND").unwrap().to_string();
+
+                format!("DELETE FROM {} WHERE{}", #struct_name_string, fields)
             }
 
             // rusqlite specific, converts a ruslite row into the struct itself

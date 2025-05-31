@@ -47,7 +47,12 @@ pub trait DBInterface {
     fn create_table_for_type<T: SQLGenerate>(&self) -> Result<(), Box<dyn Error>>;
     /// enters a new entry into the database table of the type T, a table using create_table_for_type has to be created beforehand.
     fn new_entry<T: SQLGenerate>(&self, params: Vec<SQLWhereValue>) -> Result<i32, Box<dyn Error>>;
+    /// selects entries with where statement depending on which params are passed
     fn select_entries<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>) -> Result<Vec<T>, Box<dyn Error>>;
+    /// udpates a single row, params are the changed parameters, where_params is the WHERE statement which selects what rows to update
+    fn update_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>, where_params: Vec<(String, SQLWhereValue)>) -> Result<(), Box<dyn Error>>;
+    /// deletes one or more entries, params determines the where clause which selects what entries to delete
+    fn delete_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>) -> Result<(), Box<dyn Error>>;
 }
 
 // structs, which are stored inside of the database

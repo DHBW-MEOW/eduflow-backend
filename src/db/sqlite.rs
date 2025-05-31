@@ -335,7 +335,39 @@ impl DBInterface for SqliteDatabase {
         Ok(local_tokens)
     }
     
+    fn update_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>, where_params: Vec<(String, SQLWhereValue)>) -> Result<(), Box<dyn Error>> {
+        let conn = self.get_conn()?;
+        let sql = T::get_db_update(params.iter().map(|entry| &entry.0).collect(), where_params.iter().map(|entry| &entry.0).collect());
+
+        let params: Vec<&dyn ToSql> = params.iter().chain(where_params.iter()).map(|e| &e.1).map(|param| {
+            match param {
+                super::sql_helper::SQLWhereValue::Text(s) => s as &dyn ToSql,
+                super::sql_helper::SQLWhereValue::Int32(i) => i as &dyn ToSql,
+                super::sql_helper::SQLWhereValue::Blob(items) => items as &dyn ToSql,
+                super::sql_helper::SQLWhereValue::Float64(f) => f as &dyn ToSql,
+            }
+        }).collect();
+
+        conn.execute(&sql, params.as_slice())?;
+
+        Ok(())
+    }
     
-    
-    
+    fn delete_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>) -> Result<(), Box<dyn Error>> {
+        let conn = self.get_conn()?;
+        let sql = T::get_db_delete(params.iter().map(|e| &e.0).collect());
+
+        let params: Vec<&dyn ToSql> = params.iter().map(|e| &e.1).map(|param| {
+            match param {
+                super::sql_helper::SQLWhereValue::Text(s) => s as &dyn ToSql,
+                super::sql_helper::SQLWhereValue::Int32(i) => i as &dyn ToSql,
+                super::sql_helper::SQLWhereValue::Blob(items) => items as &dyn ToSql,
+                super::sql_helper::SQLWhereValue::Float64(f) => f as &dyn ToSql,
+            }
+        }).collect();
+
+        conn.execute(&sql, params.as_slice())?;
+
+        Ok(())
+    }
 }
