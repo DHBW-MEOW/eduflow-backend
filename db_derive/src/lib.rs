@@ -2,11 +2,64 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, GenericArgument, PathArguments, Type};
 
+#[proc_macro_derive(SendObject)]
+pub fn send_object_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    
+    // get struct name
+    let struct_name = input.ident;
+
+
+     // get fields
+    let fields = if let Data::Struct(DataStruct {
+        fields: Fields::Named(ref fields),
+        ..
+    }) = input.data {
+        fields
+    } else {
+        panic!("SendObject needs named struct fields");
+    };
+
+    // first field has to be id
+    let id_field_name = fields.named.get(0).expect("SendObject needs at least one field").ident.as_ref().unwrap().to_string();
+    if id_field_name != "id" {
+        panic!("SendObject first field must be \"id\"!");
+    }
+
+    // map fields to (String, SQLWhereValue), skip id
+    let field_map = fields.named.iter().skip(1).map(|field| {
+        let field_name = field.ident.as_ref().unwrap();
+
+        quote! {
+            (stringify!(#field_name).to_string(), crate::db::sql_helper::SQLValue::from(self.#field_name.clone()))
+        }
+
+    });
+
+    let generator = quote! {
+        impl crate::data_handler::Sendable for #struct_name {
+            // return id
+            fn get_id(&self) -> Option<i32> {
+                self.id
+            }
+            // build a list of all parameters
+            fn to_param_vec(&self) -> Vec<(String, crate::db::sql_helper::SQLValue)> {
+                vec![
+                    #(#field_map),*
+                ]
+            }
+        }
+
+    };
+
+    println!("{}", generator.to_string());
+
+    generator.into()
+}
 
 #[proc_macro_derive(DBObject)]
 pub fn db_object_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-
     
     // get struct name
     let struct_name = input.ident;
@@ -33,23 +86,18 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
     let mut db_table = "id INTEGER PRIMARY KEY AUTOINCREMENT".to_string();
     // sql string with comma seperated list of parameters
     let mut parameter_list = "".to_string();
-    // sql string with ?x annotation required for substitution
-    let mut parameter_subst_list = "".to_string();
 
     // populate sql strings (without id)
-    fields.named.iter().skip(1).enumerate().for_each(|(i, field)| {
+    fields.named.iter().skip(1).for_each(|field| {
         let type_str = get_sql_type(&field.ty);
         let field_name = field.ident.as_ref().unwrap().to_string();
 
         db_table.push_str(format!(",{} {}", field_name, type_str).as_str());
         parameter_list.push_str(format!("{field_name},").as_str());
-        parameter_subst_list.push_str(format!("?{},", i + 1).as_str());
-        //parameter_where.push(value);
 
     });
     // remove extra comma
     parameter_list.pop();
-    parameter_subst_list.pop();
 
     // rusqlite specific
     // rusqlite row assignment
@@ -62,15 +110,22 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
     });
     
 
-    let generator = quote! {
+    quote! {
         // trait definition in main crate
         impl crate::db::sql_helper::SQLGenerate for #struct_name {
             fn get_db_table_create() -> String {
                 format!("CREATE TABLE IF NOT EXISTS {} ({})", #struct_name_string, #db_table)
             }
 
-            fn get_db_insert() -> String {
-                format!("INSERT INTO {} ({}) VALUES ({})", #struct_name_string, #parameter_list, #parameter_subst_list)
+            fn get_db_insert(fields: Vec<&String>) -> String {
+                let (mut field_names, mut field_subst): (String, String) = fields.iter().enumerate().map(|(i, field)| {
+                    (format!("{},", field), format!("?{},", i + 1))
+                }).collect();
+                // remove trailing ","
+                field_names.pop();
+                field_subst.pop();
+
+                format!("INSERT INTO {} ({}) VALUES ({})", #struct_name_string, field_names, field_subst)
             }
 
             // generates a sql select statement with a where statement depending on the where_fields (connected with and)
@@ -125,6 +180,12 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
                 format!("DELETE FROM {} WHERE{}", #struct_name_string, fields)
             }
 
+            fn get_db_ident() -> crate::db::DBObjIdent {
+                crate::db::DBObjIdent {
+                    db_identifier: #struct_name_string.to_string()
+                }
+            }
+
             // rusqlite specific, converts a ruslite row into the struct itself
             fn row_to_struct(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
                 Ok(Self {
@@ -133,9 +194,7 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
             }
 
         }
-    };
-
-    generator.into()
+    }.into()
 }
 
 

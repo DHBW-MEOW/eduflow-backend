@@ -11,7 +11,7 @@ use rand::{TryRngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
 use token_gen::generate_token;
 
-use crate::{crypt::{crypt_types::CryptString, Cryptable}, db::{DBInterface, DBStructs}, AppState};
+use crate::{crypt::{crypt_types::CryptString, Cryptable}, db::{get_db_idents, DBInterface, DBObjIdent}, AppState};
 
 mod token_gen;
 
@@ -83,8 +83,8 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
 
     // all is right -> generate tokens so user can log in immedieately
 
-    // generate local tokens for future use, every DBStructs element gets a local token
-    DBStructs::get_iter().for_each(|variant| {
+    // generate local tokens for future use, every db ident element gets a local token
+    get_db_idents().iter().for_each(|variant| {
             let result = add_new_local_token(user_id, &request.password, variant, state.clone());
             if result.is_err() {
                 error!("Failed to generate local token for variant {:?}!, user id: {}, registration partially successful!", variant, user_id);
@@ -240,7 +240,7 @@ pub fn verify_token<DB: DBInterface + Send + Sync>(auth_header: Option<&HeaderVa
 
 }
 /// takes a remote token, the according user id and used for attribute and decrypts the corresponding local token and returns it
-pub fn decrypt_local_token_for<DB: DBInterface + Send + Sync>(user_id: i32, used_for: &DBStructs, remote_token_id: i32, remote_token: &str, state: Arc<AppState<DB>>) -> Result<String, Box<dyn Error>>{
+pub fn decrypt_local_token_for<DB: DBInterface + Send + Sync>(user_id: i32, used_for: &DBObjIdent, remote_token_id: i32, remote_token: &str, state: Arc<AppState<DB>>) -> Result<String, Box<dyn Error>>{
     // get the neccessary local token and decrypt it
     let local_token_pwcrypt = state.db.get_local_token_by_used_for_pwcrypt(user_id, used_for)?;
     // get the rt encrypted version of it:
@@ -253,7 +253,7 @@ pub fn decrypt_local_token_for<DB: DBInterface + Send + Sync>(user_id: i32, used
 }
 
 /// generates and adds a password encrypted local token to the Database
-pub fn add_new_local_token<DB: DBInterface + Send + Sync>(user_id: i32, password: &str, used_for: &DBStructs, state: Arc<AppState<DB>>) -> Result<(), Box<dyn Error>>{
+pub fn add_new_local_token<DB: DBInterface + Send + Sync>(user_id: i32, password: &str, used_for: &DBObjIdent, state: Arc<AppState<DB>>) -> Result<(), Box<dyn Error>>{
     let local_token = generate_token();
     let local_token_crypt = CryptString::encrypt(&local_token, password.as_bytes(), &state.crypt_provider);
 

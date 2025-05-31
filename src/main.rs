@@ -1,8 +1,8 @@
-use std::{sync::Arc, vec};
+use std::sync::Arc;
 
 use axum::{routing::get, Router};
 use crypt::crypt_provider::CryptProviders;
-use db::{sqlite::SqliteDatabase, DBInterface, Course};
+use db::{sqlite::SqliteDatabase, DBInterface};
 use log::info;
 
 mod auth_handler;

@@ -7,7 +7,7 @@ use rusqlite::{params, ToSql};
 
 use crate::crypt::crypt_types::CryptString;
 
-use super::{sql_helper::{SQLGenerate, SQLWhereValue}, DBInterface, DBStructs, LocalTokenPWCrypt, LocalTokenRTCrypt, RemoteToken, User};
+use super::{sql_helper::{SQLGenerate, SQLValue}, DBInterface, DBObjIdent, LocalTokenPWCrypt, LocalTokenRTCrypt, RemoteToken, User};
 
 pub struct SqliteDatabase {
     pool: Arc<Pool<SqliteConnectionManager>>,
@@ -120,11 +120,11 @@ impl DBInterface for SqliteDatabase {
         Ok(id.try_into().expect("DB Ids exceed i32"))
     }
 
-    fn new_local_token_pwcrypt(&self, user_id: i32, token_crypt: &CryptString, used_for: &DBStructs) -> Result<(), Box<dyn Error>> {
+    fn new_local_token_pwcrypt(&self, user_id: i32, token_crypt: &CryptString, used_for: &DBObjIdent) -> Result<(), Box<dyn Error>> {
         let conn = self.get_conn()?;
 
         let sql = "INSERT INTO pwcrypt_local_token (user_id, local_token, used_for) VALUES (?1, ?2, ?3)";
-        conn.execute(sql, params![user_id, token_crypt.data_crypt, used_for.to_string()])?;
+        conn.execute(sql, params![user_id, token_crypt.data_crypt, used_for.db_identifier])?;
 
         debug!("Created new user bound local token (password encrypted)");
 
@@ -150,7 +150,8 @@ impl DBInterface for SqliteDatabase {
                 id: row.get(0)?,
                 user_id: row.get(1)?,
                 token_crypt: CryptString { data_crypt: row.get(2)? },
-                used_for: DBStructs::from(row.get::<usize, String>(3)?),
+                //used_for: DBStructs::from(row.get::<usize, String>(3)?),
+                used_for: DBObjIdent { db_identifier: row.get(3)?},
             })
         })?;
 
@@ -159,15 +160,15 @@ impl DBInterface for SqliteDatabase {
         Ok(local_tokens)
     }
     
-    fn get_local_token_by_used_for_pwcrypt(&self, user_id: i32, used_for: &DBStructs) -> Result<LocalTokenPWCrypt, Box<dyn Error>> {
+    fn get_local_token_by_used_for_pwcrypt(&self, user_id: i32, used_for: &DBObjIdent) -> Result<LocalTokenPWCrypt, Box<dyn Error>> {
         let conn = self.get_conn()?;
         let sql = "SELECT lt.id, lt.user_id, lt.local_token, lt.used_for FROM pwcrypt_local_token lt WHERE lt.id = ?1 AND lt.used_for = ?2";
-        let local_token = conn.query_row(sql, params![user_id, used_for.to_string()], |row| {
+        let local_token = conn.query_row(sql, params![user_id, used_for.db_identifier], |row| {
             Ok(LocalTokenPWCrypt {
                 id: row.get(0)?,
                 user_id: row.get(1)?,
                 token_crypt: CryptString { data_crypt: row.get(2)? },
-                used_for: DBStructs::from(row.get::<usize, String>(3)?),
+                used_for: DBObjIdent { db_identifier: row.get(3)?},
             })
         })?;
 
@@ -227,16 +228,16 @@ impl DBInterface for SqliteDatabase {
     }
 
     /// creates a new db_entry, returns the resulting id
-    /// params need to be in the same order as defined in the struct, do not include the id field.
-    fn new_entry<T: SQLGenerate>(&self, params: Vec<SQLWhereValue>) -> Result<i32, Box<dyn Error>> {
+    /// params need to be a complete list of all fields in the struct of type T (order does not matter), do not include the id field (it is autoincrement).
+    fn new_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>) -> Result<i32, Box<dyn Error>> {
         let conn = self.get_conn()?;
-        let sql = T::get_db_insert();
+        let sql = T::get_db_insert(params.iter().map(|e| &e.0 ).collect());
         let params: Vec<&dyn ToSql> = params.iter().map(|param| {
-            match param {
-                super::sql_helper::SQLWhereValue::Text(s) => s as &dyn ToSql,
-                super::sql_helper::SQLWhereValue::Int32(i) => i as &dyn ToSql,
-                super::sql_helper::SQLWhereValue::Blob(items) => items as &dyn ToSql,
-                super::sql_helper::SQLWhereValue::Float64(f) => f as &dyn ToSql,
+            match &param.1 {
+                super::sql_helper::SQLValue::Text(s) => s as &dyn ToSql,
+                super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
+                super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
+                super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
             }
         }).collect();
 
@@ -248,17 +249,17 @@ impl DBInterface for SqliteDatabase {
     
     /// selects an amount of entries and returns them
     /// params are used to select the correct entries (will be inserted at the WHERE clause)
-    fn select_entries<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>) -> Result<Vec<T>, Box<dyn Error>> {
+    fn select_entries<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>) -> Result<Vec<T>, Box<dyn Error>> {
         let conn = self.get_conn()?;
         let sql = T::get_db_select(params.iter().map(|entry| &entry.0).collect());
         let mut stmt = conn.prepare(&sql)?;
 
         let params: Vec<&dyn ToSql> = params.iter().map(|e| &e.1).map(|param| {
             match param {
-                super::sql_helper::SQLWhereValue::Text(s) => s as &dyn ToSql,
-                super::sql_helper::SQLWhereValue::Int32(i) => i as &dyn ToSql,
-                super::sql_helper::SQLWhereValue::Blob(items) => items as &dyn ToSql,
-                super::sql_helper::SQLWhereValue::Float64(f) => f as &dyn ToSql,
+                super::sql_helper::SQLValue::Text(s) => s as &dyn ToSql,
+                super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
+                super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
+                super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
             }
         }).collect();
 
@@ -273,16 +274,16 @@ impl DBInterface for SqliteDatabase {
     /// updates entries and returns ok on success
     /// params are the params which should be changed
     /// where_params are the params which will be filtered on in the WHERE clause
-    fn update_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>, where_params: Vec<(String, SQLWhereValue)>) -> Result<(), Box<dyn Error>> {
+    fn update_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>, where_params: Vec<(String, SQLValue)>) -> Result<(), Box<dyn Error>> {
         let conn = self.get_conn()?;
         let sql = T::get_db_update(params.iter().map(|entry| &entry.0).collect(), where_params.iter().map(|entry| &entry.0).collect());
 
         let params: Vec<&dyn ToSql> = params.iter().chain(where_params.iter()).map(|e| &e.1).map(|param| {
             match param {
-                super::sql_helper::SQLWhereValue::Text(s) => s as &dyn ToSql,
-                super::sql_helper::SQLWhereValue::Int32(i) => i as &dyn ToSql,
-                super::sql_helper::SQLWhereValue::Blob(items) => items as &dyn ToSql,
-                super::sql_helper::SQLWhereValue::Float64(f) => f as &dyn ToSql,
+                super::sql_helper::SQLValue::Text(s) => s as &dyn ToSql,
+                super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
+                super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
+                super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
             }
         }).collect();
 
@@ -293,16 +294,16 @@ impl DBInterface for SqliteDatabase {
     
     /// deletes an entry and returns ok on success
     /// params is the WHERE clause, which select what entry to delete
-    fn delete_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>) -> Result<(), Box<dyn Error>> {
+    fn delete_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>) -> Result<(), Box<dyn Error>> {
         let conn = self.get_conn()?;
         let sql = T::get_db_delete(params.iter().map(|e| &e.0).collect());
 
         let params: Vec<&dyn ToSql> = params.iter().map(|e| &e.1).map(|param| {
             match param {
-                super::sql_helper::SQLWhereValue::Text(s) => s as &dyn ToSql,
-                super::sql_helper::SQLWhereValue::Int32(i) => i as &dyn ToSql,
-                super::sql_helper::SQLWhereValue::Blob(items) => items as &dyn ToSql,
-                super::sql_helper::SQLWhereValue::Float64(f) => f as &dyn ToSql,
+                super::sql_helper::SQLValue::Text(s) => s as &dyn ToSql,
+                super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
+                super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
+                super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
             }
         }).collect();
 

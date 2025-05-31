@@ -2,7 +2,7 @@ use std::{error::Error, slice::Iter};
 
 use chrono::{NaiveDate, NaiveDateTime};
 use db_derive::DBObject;
-use sql_helper::{SQLGenerate, SQLWhereValue};
+use sql_helper::{SQLGenerate, SQLValue};
 
 use crate::crypt::crypt_types::CryptString;
 
@@ -23,7 +23,7 @@ pub trait DBInterface {
 
     // write tokens
     /// create new password encrypted local token
-    fn new_local_token_pwcrypt(&self, user_id: i32, token_crypt: &CryptString, used_for: &DBStructs) -> Result<(), Box<dyn Error>>;
+    fn new_local_token_pwcrypt(&self, user_id: i32, token_crypt: &CryptString, used_for: &DBObjIdent) -> Result<(), Box<dyn Error>>;
     /// create a new encrypted version of an already existing local token (encrypted by a remote token)
     fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, decryptable_by_rt_id: i32, valid_until: &NaiveDateTime) -> Result<(), Box<dyn Error>>;
     /// create new remote token, results in write access, returns remote token id
@@ -33,7 +33,7 @@ pub trait DBInterface {
     /// get all local tokens for a user encrypted by password
     fn get_local_tokens_by_user_pwcrypt(&self, user_id: i32) -> Result<Vec<LocalTokenPWCrypt>, Box<dyn Error>>;
     /// get a single local token by id encrypted by password
-    fn get_local_token_by_used_for_pwcrypt(&self, user_id: i32, used_for: &DBStructs) -> Result<LocalTokenPWCrypt, Box<dyn Error>>;
+    fn get_local_token_by_used_for_pwcrypt(&self, user_id: i32, used_for: &DBObjIdent) -> Result<LocalTokenPWCrypt, Box<dyn Error>>;
     /// get all local tokens encrypted by a remote token
     //fn get_local_tokens_by_rthash(&self, remote_token_hash: &str) -> Result<Vec<LocalTokenRTCrypt>, Box<dyn Error>>;
     /// get a single local token encrypted by a remote token
@@ -46,13 +46,13 @@ pub trait DBInterface {
     /// creates a new database table for the type T, which has to have the DBObject derive macro
     fn create_table_for_type<T: SQLGenerate>(&self) -> Result<(), Box<dyn Error>>;
     /// enters a new entry into the database table of the type T, a table using create_table_for_type has to be created beforehand.
-    fn new_entry<T: SQLGenerate>(&self, params: Vec<SQLWhereValue>) -> Result<i32, Box<dyn Error>>;
+    fn new_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>) -> Result<i32, Box<dyn Error>>;
     /// selects entries with where statement depending on which params are passed
-    fn select_entries<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>) -> Result<Vec<T>, Box<dyn Error>>;
+    fn select_entries<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>) -> Result<Vec<T>, Box<dyn Error>>;
     /// udpates a single row, params are the changed parameters, where_params is the WHERE statement which selects what rows to update
-    fn update_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>, where_params: Vec<(String, SQLWhereValue)>) -> Result<(), Box<dyn Error>>;
+    fn update_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>, where_params: Vec<(String, SQLValue)>) -> Result<(), Box<dyn Error>>;
     /// deletes one or more entries, params determines the where clause which selects what entries to delete
-    fn delete_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>) -> Result<(), Box<dyn Error>>;
+    fn delete_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>) -> Result<(), Box<dyn Error>>;
 }
 
 // structs, which are stored inside of the database
@@ -71,7 +71,7 @@ pub struct LocalTokenPWCrypt {
     pub id: i32,
     pub user_id: i32,
     pub token_crypt: CryptString,
-    pub used_for: DBStructs,
+    pub used_for: DBObjIdent,
 }
 /// struct that stores the local tokens encrypted by a remote token
 #[derive(Debug)]
@@ -89,8 +89,18 @@ pub struct RemoteToken {
     pub rt_hash: String,
     pub user_id: i32
 } 
+pub struct Test {
+    pub test: &'static str
+}
 
 // DATA
+pub fn get_db_idents() -> [DBObjIdent; 1] {
+    [Course::get_db_ident()]
+}
+#[derive(Debug)]
+pub struct DBObjIdent {
+    pub db_identifier: String,
+}
 /// enum of all data entries the user can access
 /// used for generating local tokens (one local token per user per db struct)
 #[derive(Debug)]
