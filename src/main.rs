@@ -27,14 +27,6 @@ async fn main() {
         crypt_provider: CryptProviders::SimpleCryptProv
     });
 
-    // test code
-    shared_state.db.create_table_for_type::<Course>().unwrap();
-    //shared_state.db.new_entry::<Course>(vec![SQLWhereValue::Blob(vec![4,5,8])]).unwrap();
-
-    let entries = shared_state.db.select_entries::<Course>(select_fields! {name: vec![4,5,8]}).unwrap();
-    println!("{:?}", entries);
-    // test code end
-
     let auth_router = auth_handler::auth_router(shared_state.clone());
     let data_router = data_handler::data_router(shared_state.clone());
 

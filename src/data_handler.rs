@@ -6,12 +6,15 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{AppState, db::DBInterface};
+use crate::{db::{Course, DBInterface}, AppState};
 
 mod course;
 
 /// This function defines the authentication routes for the application.
 pub fn data_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<DB>>) -> Router {
+    // create the db tables
+    state.db.create_table_for_type::<Course>().unwrap();
+    
     // handles returning data
     let get_routes = Router::new().route("/course", get(course::handle_get_course));
 
@@ -29,7 +32,7 @@ pub fn data_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<
 }
 // general structs
 
-/// response with an id
+/// response / request with an id
 #[derive(Deserialize, Serialize, Debug)]
 struct IDResponse {
     id: i32

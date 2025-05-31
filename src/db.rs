@@ -1,6 +1,6 @@
 use std::{error::Error, slice::Iter};
 
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 use db_derive::DBObject;
 use sql_helper::{SQLGenerate, SQLWhereValue};
 
@@ -125,10 +125,54 @@ impl ToString for DBStructs {
     }
 }
 
-/// course db entry
+// db entries
 #[derive(Debug, DBObject)]
 pub struct Course {
     pub id: i32,
-    pub name: CryptString,
     pub user_id: i32,
+
+    pub name: CryptString,
 }
+#[derive(Debug, DBObject)]
+pub struct Topic {
+    pub id: i32,
+    pub user_id: i32,
+
+    pub course_id: i32,
+    pub name: CryptString,
+    pub details: CryptString,
+}
+#[derive(Debug, DBObject)]
+pub struct StudyGoal {
+    pub id: i32,
+    pub user_id: i32,
+
+    pub topic_id: i32,
+    pub deadline: NaiveDate,
+}
+#[derive(Debug, DBObject)]
+pub struct Exam {
+    pub id: i32,
+    pub user_id: i32,
+
+    pub course_id: i32,
+    pub name: CryptString,
+    pub date: NaiveDate,
+}
+#[derive(Debug, DBObject)]
+pub struct ToDo {
+    pub id: i32,
+    pub user_id: i32,
+
+    pub name: CryptString,
+    pub deadline: NaiveDate,
+    pub details: CryptString,
+    pub completed: bool,
+}
+
+// course: consists of: name (cryptstring)
+// topic: consists of: course_id (foreign key), name (cryptstring), details (cryptstring)
+// study_goal: consists of: topic_id (foreign key), deadline (date), 
+// exam: consists of: course_id (foreign key), name (cryptstring), date (date)
+
+// todo: consists of: name (cryptstring), deadline (date), details (crypstring), completed (bool)

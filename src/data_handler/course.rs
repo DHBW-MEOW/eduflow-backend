@@ -22,12 +22,6 @@ pub struct CourseRequest {
     id: Option<i32>,
 }
 
-/// struct for deleting a course
-#[derive(Deserialize, Serialize, Debug)]
-pub struct CourseDeleteRequest {
-    id: i32,
-}
-
 pub async fn handle_get_course<DB: DBInterface + Send + Sync>(
     headers: HeaderMap,
     State(state): State<Arc<AppState<DB>>>,
@@ -142,7 +136,7 @@ pub async fn handle_new_course<DB: DBInterface + Send + Sync>(
 
         let id = state
             .db
-            .new_entry::<Course>(vec![SQLWhereValue::Blob(name.data_crypt), SQLWhereValue::Int32(user_id)]);
+            .new_entry::<Course>(vec![SQLWhereValue::Int32(user_id), SQLWhereValue::Blob(name.data_crypt)]);
         if id.is_err() {
             error!(
                 "Failed to insert new course into db! (user id: {})",
@@ -185,7 +179,7 @@ pub async fn handle_new_course<DB: DBInterface + Send + Sync>(
 pub async fn handle_delete_course<DB: DBInterface + Send + Sync>(
     headers: HeaderMap,
     State(state): State<Arc<AppState<DB>>>,
-    Json(request): Json<CourseDeleteRequest>,
+    Json(request): Json<IDResponse>,
 ) -> Result<Json<IDResponse>, StatusCode> {
     info!("Course deletion requested!");
 
