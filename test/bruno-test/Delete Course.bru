@@ -1,10 +1,10 @@
 meta {
-  name: Get Course
+  name: Delete Course
   type: http
-  seq: 8
+  seq: 7
 }
 
-get {
+delete {
   url: http://localhost:3000/data/course
   body: json
   auth: inherit
@@ -12,6 +12,6 @@ get {
 
 body:json {
   {
-    "id": null
+    "id": 5
   }
 }

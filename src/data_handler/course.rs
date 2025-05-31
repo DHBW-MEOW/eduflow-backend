@@ -22,6 +22,12 @@ pub struct CourseRequest {
     id: Option<i32>,
 }
 
+/// struct for deleting a course
+#[derive(Deserialize, Serialize, Debug)]
+pub struct CourseDeleteRequest {
+    id: i32,
+}
+
 pub async fn handle_get_course<DB: DBInterface + Send + Sync>(
     headers: HeaderMap,
     State(state): State<Arc<AppState<DB>>>,
@@ -177,6 +183,33 @@ pub async fn handle_new_course<DB: DBInterface + Send + Sync>(
 }
 
 pub async fn handle_delete_course<DB: DBInterface + Send + Sync>(
+    headers: HeaderMap,
     State(state): State<Arc<AppState<DB>>>,
-) {
+    Json(request): Json<CourseDeleteRequest>,
+) -> Result<Json<IDResponse>, StatusCode> {
+    info!("Course deletion requested!");
+
+    let auth_header = headers.get("authorization");
+
+    // verify that the token is valid
+    let verified_token = verify_token(auth_header, state.clone());
+    if verified_token.is_err() {
+        warn!("Authentication failure, invalid token!");
+        // invalid token, authentication failure
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let (user_id, _, _) = verified_token.unwrap();
+    // we do not need a local token, because we do not need to decrypt or encrypt anything
+
+    // all is good, delete the provided course
+    let result = state.db.delete_entry::<Course>(select_fields! { id: request.id, user_id: user_id});
+
+    if result.is_err() {
+        // this happens if the sql querry is formatted wrong (which should never happen)
+        error!("Failed to delete entry in DB!");
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    info!("Course deletion successful.");
+    Ok(Json(IDResponse {id: request.id}))
 }
