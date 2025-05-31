@@ -25,7 +25,6 @@ impl SqliteDatabase {
             pool: Arc::new(pool),
         };
         db.create_auth_tables()?;
-        db.create_data_tables()?;
 
         Ok(db)
     }
@@ -83,24 +82,6 @@ impl SqliteDatabase {
                 user_id INTEGER NOT NULL
             )", 
             [],
-        )?;
-
-        Ok(())
-    }
-
-    fn create_data_tables(&self) -> Result<(), Box<dyn Error>> {
-        let conn = self.get_conn()?;
-        // dummy table
-        // decryptable by is the id of the local token that can decrypt the fields
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS dummy (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                number BLOB NOT NULL,
-                text BLOB NOT NULL,
-                decryptable_by INTEGER NOT NULL
-            )",
-        [],
         )?;
 
         Ok(())
@@ -193,26 +174,6 @@ impl DBInterface for SqliteDatabase {
         Ok(local_token)
     }
     
-    /*
-    fn get_local_tokens_by_rthash(&self, remote_token_hash: &str) -> Result<Vec<LocalTokenRTCrypt>, Box<dyn Error>> {
-        let conn = self.get_conn()?;
-        let mut stmt = conn.prepare("SELECT lt.id, lt.local_token_id, lt.local_token, lt.remote_token_hash, lt.valid_until FROM rtcrypt_local_token lt WHERE lt.remote_token_hash = ?1")?;
-        let local_tokens = stmt.query_map(params![remote_token_hash], |row| {
-            Ok(LocalTokenRTCrypt {
-                id: row.get(0)?,
-                local_token_id: row.get(1)?,
-                local_token_crypt: CryptString { data_crypt: row.get(2)? },
-                remote_token_hash: row.get(3)?,
-                valid_until: row.get(4)?,
-            })
-        })?;
-
-        let local_tokens: Vec<LocalTokenRTCrypt> = local_tokens.collect::<Result<Vec<_>, _>>()?;
-
-        Ok(local_tokens)
-    }
-    */
-    
     fn get_local_token_by_id_rtcrypt(&self, local_token_id: i32, remote_token_id: i32) -> Result<LocalTokenRTCrypt, Box<dyn Error>> {
         let conn = self.get_conn()?;
         let sql = "SELECT lt.id, lt.local_token_id, lt.local_token, lt.decrypt_by_rt_id, lt.valid_until FROM rtcrypt_local_token lt WHERE lt.local_token_id = ?1 AND lt.decrypt_by_rt_id = ?2";
@@ -256,34 +217,6 @@ impl DBInterface for SqliteDatabase {
 
 
     // DATA OBJECTS
-    
-    // dummy related
-    /* fn new_dummy(&self, name: &str, number: &CryptI32, text: &CryptString, decryptable_by: i32) -> Result<(), Box<dyn Error>> {
-        let conn = self.get_conn()?;
-
-        let sql =  "INSERT INTO dummy (name, number, text, decryptable_by) VALUES (?1, ?2, ?3, ?4)";
-        conn.execute(sql, params![name, number.data_crypt, text.data_crypt, decryptable_by])?;
-
-        Ok(())
-    }
-    
-    fn get_dummy(&self, id: i32) -> Result<super::TestDummy, Box<dyn Error>> {
-        let conn = self.get_conn()?;
-        let sql = "SELECT d.id, d.name, d.number, d.text d.decryptable_by FROM dummy d WHERE d.id = ?1";
-        let dummy = conn.query_row(sql, params![id], |row| {
-            Ok(TestDummy{
-                id: row.get(0)?,
-                name: row.get(1)?,
-                secret_number: row.get(2)?,//CryptI32 { data_crypt: row.get(2)? },
-                secret_text: row.get(3)?,//CryptString { data_crypt: row.get(3)? },
-                decryptable_by: row.get(4)?,
-            })
-        })?;
-
-        Ok(dummy)
-    } */
-    
-    // generic fns
     /// creates and prepares a db table
     fn create_table_for_type<T: SQLGenerate>(&self) -> Result<(), Box<dyn Error>> {
         let conn = self.get_conn()?;
@@ -313,6 +246,8 @@ impl DBInterface for SqliteDatabase {
         Ok(id.try_into().expect("Id value exceeding i32"))
     }
     
+    /// selects an amount of entries and returns them
+    /// params are used to select the correct entries (will be inserted at the WHERE clause)
     fn select_entries<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>) -> Result<Vec<T>, Box<dyn Error>> {
         let conn = self.get_conn()?;
         let sql = T::get_db_select(params.iter().map(|entry| &entry.0).collect());
@@ -335,6 +270,9 @@ impl DBInterface for SqliteDatabase {
         Ok(local_tokens)
     }
     
+    /// updates entries and returns ok on success
+    /// params are the params which should be changed
+    /// where_params are the params which will be filtered on in the WHERE clause
     fn update_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>, where_params: Vec<(String, SQLWhereValue)>) -> Result<(), Box<dyn Error>> {
         let conn = self.get_conn()?;
         let sql = T::get_db_update(params.iter().map(|entry| &entry.0).collect(), where_params.iter().map(|entry| &entry.0).collect());
@@ -353,6 +291,8 @@ impl DBInterface for SqliteDatabase {
         Ok(())
     }
     
+    /// deletes an entry and returns ok on success
+    /// params is the WHERE clause, which select what entry to delete
     fn delete_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLWhereValue)>) -> Result<(), Box<dyn Error>> {
         let conn = self.get_conn()?;
         let sql = T::get_db_delete(params.iter().map(|e| &e.0).collect());
