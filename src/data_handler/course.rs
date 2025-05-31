@@ -149,8 +149,30 @@ pub async fn handle_new_course<DB: DBInterface + Send + Sync>(
         Ok(Json(IDResponse { id: id.unwrap() }))
     } else {
         info!("Authentication successful, edit requested.");
-        // TODO: edit entry
-        Ok(Json(IDResponse { id: 0 }))
+        // id is not none
+        let entry_id = request.id.unwrap();
+
+        // prepare where params
+        let where_params = select_fields! {
+            id: entry_id,
+            user_id: user_id,
+        };
+
+        // always update every field, even though we do not really have to
+        let name = CryptString::encrypt(&request.name, local_token.as_bytes(), &state.crypt_provider);
+        let params = select_fields! {
+            name: name.data_crypt,
+        };
+
+        let result = state.db.update_entry::<Course>(params, where_params);
+        if result.is_err() {
+            error!("Failed to edit course in DB! course id: {}", entry_id);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+
+        info!("Course edit successful.");
+        // respond with the id that we already got from client, but hey we need to send something
+        Ok(Json(IDResponse { id: entry_id }))
     }
 }
 
