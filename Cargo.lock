@@ -394,14 +394,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "db_derive"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -419,7 +411,7 @@ dependencies = [
  "argon2",
  "axum",
  "chrono",
- "db_derive",
+ "eduflow_derive",
  "env_logger",
  "log",
  "r2d2",
@@ -431,6 +423,14 @@ dependencies = [
  "simple_crypt",
  "tokio",
  "tower",
+]
+
+[[package]]
+name = "eduflow_derive"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]

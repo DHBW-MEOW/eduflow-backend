@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use chrono::NaiveDate;
-use db_derive::{DBObject, Selector, SendObject};
+use eduflow_derive::{DBObject, Selector, SendObject};
 use serde::{Deserialize, Serialize};
 
 use crate::{crypt::{crypt_provider::CryptProviders, crypt_types::CryptString, Cryptable}, db::{sql_helper::{SQLGenerate, SQLValue}, DBObjIdent}, db_param_map};

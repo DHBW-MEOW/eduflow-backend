@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 # own dependencies
-db_derive = { path = "./db_derive" }
+eduflow_derive = { path = "./eduflow_derive" }
 
 # web server specific
 axum = "0.8.4"
