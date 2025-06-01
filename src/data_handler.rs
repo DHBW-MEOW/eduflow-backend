@@ -67,8 +67,6 @@ struct IDBody {
 pub trait Sendable {
     /// gets the id for the send Object
     fn get_id(&self) -> Option<i32>;
-    // /// returns a vector of all parameters excluding id
-    //fn to_param_vec(&self) -> Vec<(String, SQLValue)>;
 }
 
 /// needs to be implemented for every Request type, converts the Option<T> to a map with only some values
