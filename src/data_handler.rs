@@ -3,7 +3,7 @@ use std::{any::type_name, error::Error, sync::Arc};
 use axum::{
     extract::State, http::{HeaderMap, StatusCode}, routing::{delete, get, post}, Json, Router
 };
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use objects::{CourseDB, CourseRequest, CourseSend, ExamDB, ExamRequest, ExamSend, StudyGoalDB, StudyGoalRequest, StudyGoalSend, ToDoDB, ToDoRequest, ToDoSend, TopicDB, TopicRequest, TopicSend};
 use serde::{Deserialize, Serialize};
 
