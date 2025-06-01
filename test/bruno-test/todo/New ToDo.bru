@@ -1,0 +1,21 @@
+meta {
+  name: New ToDo
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/data/todo
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "id": null,
+    "name": "todo 1",
+    "deadline": "2025-12-01",
+    "details": "do something",
+    "completed": false
+  }
+}

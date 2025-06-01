@@ -1,0 +1,19 @@
+meta {
+  name: Edit Study Goal
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:3000/data/study_goal
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "id": 1,
+    "topic_id": 1,
+    "deadline": "2025-12-12"
+  }
+}

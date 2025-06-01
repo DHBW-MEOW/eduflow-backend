@@ -1,0 +1,18 @@
+meta {
+  name: Get Exam
+  type: http
+  seq: 4
+}
+
+get {
+  url: http://localhost:3000/data/exam
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "id": null,
+    "course_id": null
+  }
+}

@@ -1,0 +1,17 @@
+meta {
+  name: Delete Study Goal
+  type: http
+  seq: 3
+}
+
+delete {
+  url: http://localhost:3000/data/study_goal
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "id": 1
+  }
+}

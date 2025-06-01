@@ -1,0 +1,17 @@
+meta {
+  name: Delete Exam
+  type: http
+  seq: 3
+}
+
+delete {
+  url: http://localhost:3000/data/exam
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "id": 1
+  }
+}

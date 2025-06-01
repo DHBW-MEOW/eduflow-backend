@@ -1,0 +1,20 @@
+meta {
+  name: Edit Topic
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:3000/data/topic
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "id": 1,
+    "course_id": 1,
+    "name": "new topic name",
+    "details": "new details"
+  }
+}

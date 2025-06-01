@@ -1,0 +1,20 @@
+meta {
+  name: New Exam
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/data/exam
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "id": null,
+    "course_id": 1,
+    "name": "exam 1",
+    "date": "2025-12-01"
+  }
+}
