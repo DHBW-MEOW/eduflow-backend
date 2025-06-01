@@ -23,7 +23,7 @@ async fn main() {
     env_logger::init();
 
     let shared_state = Arc::new(AppState {
-        db: Box::new(SqliteDatabase::new("db.sqlite").expect("Failed to create database")),
+        db: Box::new(SqliteDatabase::new("data/db.sqlite").expect("Failed to create database")),
         crypt_provider: CryptProviders::SimpleCryptProv
     });
 
@@ -35,7 +35,7 @@ async fn main() {
         .nest("/auth", auth_router)
         .nest("/data", data_router);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
         .expect("Failed to bind TCP listener");
 
