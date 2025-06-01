@@ -1,3 +1,5 @@
+use chrono::NaiveDate;
+
 /// enum of all possible values that can be passed to the db
 #[derive(Debug)]
 pub enum SQLValue {
@@ -5,6 +7,7 @@ pub enum SQLValue {
     Int32(i32),
     Blob(Vec<u8>),
     Float64(f64),
+    Date(NaiveDate),
 }
 
 impl Clone for SQLValue {
@@ -14,6 +17,7 @@ impl Clone for SQLValue {
             Self::Int32(arg0) => Self::Int32(arg0.clone()),
             Self::Blob(arg0) => Self::Blob(arg0.clone()),
             Self::Float64(arg0) => Self::Float64(arg0.clone()),
+            Self::Date(arg0) => Self::Date(arg0.clone()),
         }
     }
 }
@@ -36,6 +40,12 @@ impl From<i32> for SQLValue {
 impl From<Vec<u8>> for SQLValue {
     fn from(val: Vec<u8>) -> Self {
         Self::Blob(val)
+    }
+}
+
+impl From<NaiveDate> for SQLValue {
+    fn from(val: NaiveDate) -> Self {
+        Self::Date(val)
     }
 }
 

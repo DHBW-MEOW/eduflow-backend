@@ -162,7 +162,7 @@ impl DBInterface for SqliteDatabase {
     
     fn get_local_token_by_used_for_pwcrypt(&self, user_id: i32, used_for: &DBObjIdent) -> Result<LocalTokenPWCrypt, Box<dyn Error>> {
         let conn = self.get_conn()?;
-        let sql = "SELECT lt.id, lt.user_id, lt.local_token, lt.used_for FROM pwcrypt_local_token lt WHERE lt.id = ?1 AND lt.used_for = ?2";
+        let sql = "SELECT lt.id, lt.user_id, lt.local_token, lt.used_for FROM pwcrypt_local_token lt WHERE lt.user_id = ?1 AND lt.used_for = ?2";
         let local_token = conn.query_row(sql, params![user_id, used_for.db_identifier], |row| {
             Ok(LocalTokenPWCrypt {
                 id: row.get(0)?,
@@ -233,11 +233,12 @@ impl DBInterface for SqliteDatabase {
         let conn = self.get_conn()?;
         let sql = T::get_db_insert(params.iter().map(|e| &e.0 ).collect());
         let params: Vec<&dyn ToSql> = params.iter().map(|param| {
-            match &param.1 {
+            match &param.1 { // FIXME: put this in method
                 super::sql_helper::SQLValue::Text(s) => s as &dyn ToSql,
                 super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
                 super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
                 super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
+                super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
             }
         }).collect();
 
@@ -260,6 +261,7 @@ impl DBInterface for SqliteDatabase {
                 super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
                 super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
                 super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
+                super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
             }
         }).collect();
 
@@ -284,6 +286,7 @@ impl DBInterface for SqliteDatabase {
                 super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
                 super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
                 super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
+                super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
             }
         }).collect();
 
@@ -304,6 +307,7 @@ impl DBInterface for SqliteDatabase {
                 super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
                 super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
                 super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
+                super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
             }
         }).collect();
 

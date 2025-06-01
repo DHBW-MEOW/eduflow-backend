@@ -248,6 +248,8 @@ fn get_sql_type(field_type: &Type) -> String {
                         "i32" | "i64" => "INTEGER".to_string(),
                         "f64" => "REAL".to_string(),
                         "bool" => "INTEGER".to_string(), // treat booleans as integers in sql
+                        "NaiveDate" => "DATE".to_string(),
+                        "NaiveDateTime" => "DATETIME".to_string(),
                         _ => "BLOB".to_string()
                     }
                 },
