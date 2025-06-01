@@ -1,9 +1,4 @@
-use std::sync::Arc;
-
-use crate::{crypt::{crypt_types::CryptString, Cryptable}, AppState};
-
-use super::DBInterface;
-
+/// enum of all possible values that can be passed to the db
 #[derive(Debug)]
 pub enum SQLValue {
     Text(String),
@@ -44,17 +39,9 @@ impl From<Vec<u8>> for SQLValue {
     }
 }
 
-pub fn to_crypt_value<DB: DBInterface + Send + Sync>(data_plain: &SQLValue, key: &[u8], state: Arc<AppState<DB>>) -> SQLValue {
-    // only encrypt strings for now
-    if let SQLValue::Text(s) = data_plain {
-        SQLValue::from(CryptString::encrypt(&s, key, &state.crypt_provider).data_crypt)
-    } else {
-        data_plain.clone()
-    }
-}
-
+/// macro for creating a parameter map
 #[macro_export]
-macro_rules! select_fields {
+macro_rules! db_param_map {
     ( $( $name:ident : $value:expr ),* $(,)? ) => {
         {
             let mut map: Vec<(String, crate::db::sql_helper::SQLValue)> = Vec::new();
@@ -67,6 +54,7 @@ macro_rules! select_fields {
     };
 }
 
+/// implemented by DBObject
 pub trait SQLGenerate {
     /// returns a sql string to create a database table for the struct
     fn get_db_table_create() -> String;

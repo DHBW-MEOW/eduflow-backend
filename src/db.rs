@@ -1,7 +1,6 @@
-use std::{error::Error, slice::Iter};
+use std::error::Error;
 
-use chrono::{NaiveDate, NaiveDateTime};
-use db_derive::DBObject;
+use chrono::NaiveDateTime;
 use sql_helper::{SQLGenerate, SQLValue};
 
 use crate::crypt::crypt_types::CryptString;
@@ -55,9 +54,8 @@ pub trait DBInterface {
     fn delete_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>) -> Result<(), Box<dyn Error>>;
 }
 
-// structs, which are stored inside of the database
-
-// AUTH
+// AUTH structs, which are stored inside of the database
+/// struct stores username, id and password hash, used for login and registration
 #[derive(Debug)]
 pub struct User {
     pub id: i32,
@@ -82,107 +80,17 @@ pub struct LocalTokenRTCrypt {
     pub decryptable_by_rt_id: i32,
     pub valid_until: NaiveDateTime,
 }
-
+/// struct that stores a hash of a remote token, used for confirming that a remote token is valid FIXME: valid_until here?
 #[derive(Debug)]
 pub struct RemoteToken {
     pub id: i32,
     pub rt_hash: String,
     pub user_id: i32
 } 
-pub struct Test {
-    pub test: &'static str
-}
 
-// DATA
-pub fn get_db_idents() -> [DBObjIdent; 1] {
-    [Course::get_db_ident()]
-}
+
+/// DB object identifier, unique per DBObject
 #[derive(Debug)]
 pub struct DBObjIdent {
     pub db_identifier: String,
 }
-/// enum of all data entries the user can access
-/// used for generating local tokens (one local token per user per db struct)
-#[derive(Debug)]
-pub enum DBStructs {
-    Course,
-}
-
-impl DBStructs {
-    /// get all db structs as iterator
-    pub fn get_iter() -> Iter<'static, DBStructs> {
-        // NOTE: this array has to be manually extended
-        // every enum element needs to be in here
-        static DB_STRUCTS: [DBStructs; 1] = [DBStructs::Course];
-        DB_STRUCTS.iter()
-    }
-}
-
-impl From<String> for DBStructs {
-    fn from(value: String) -> Self {
-        match value.as_str() {
-            "Course" => DBStructs::Course,
-            _ => panic!()
-        }
-    }
-}
-
-impl ToString for DBStructs {
-    fn to_string(&self) -> String {
-        match self {
-            DBStructs::Course => "Course".to_string(),
-        }
-    }
-}
-
-// db entries
-#[derive(Debug, DBObject)]
-pub struct Course {
-    pub id: i32,
-    pub user_id: i32,
-
-    pub name: CryptString,
-}
-#[derive(Debug, DBObject)]
-pub struct Topic {
-    pub id: i32,
-    pub user_id: i32,
-
-    pub course_id: i32,
-    pub name: CryptString,
-    pub details: CryptString,
-}
-#[derive(Debug, DBObject)]
-pub struct StudyGoal {
-    pub id: i32,
-    pub user_id: i32,
-
-    pub topic_id: i32,
-    pub deadline: NaiveDate,
-}
-#[derive(Debug, DBObject)]
-pub struct Exam {
-    pub id: i32,
-    pub user_id: i32,
-
-    pub course_id: i32,
-    pub name: CryptString,
-    pub date: NaiveDate,
-}
-#[derive(Debug, DBObject)]
-pub struct ToDo {
-    pub id: i32,
-    pub user_id: i32,
-
-    pub name: CryptString,
-    pub deadline: NaiveDate,
-    pub details: CryptString,
-    pub completed: bool,
-}
-
-// course: consists of: name (cryptstring)
-// topic: consists of: course_id (foreign key), name (cryptstring), details (cryptstring)
-// study_goal: consists of: topic_id (foreign key), deadline (date), 
-// exam: consists of: course_id (foreign key), name (cryptstring), date (date)
-
-// todo: consists of: name (cryptstring), deadline (date), details (crypstring), completed (bool)

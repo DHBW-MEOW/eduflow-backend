@@ -10,6 +10,7 @@ pub trait CryptProvider {
     fn decrypt(data_crypt: &[u8], key: &[u8]) -> Result<Vec<u8>, Box<dyn Error>>;
 }
 
+/// enum of all possible cryptprovider, and corresponding functions to map the enum to the actual functions
 pub enum CryptProviders {
     SimpleCryptProv,
 }

@@ -3,6 +3,7 @@ use rand::Rng;
 const CHARSET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890";
 const LENGTH: usize = 32;
 
+/// generates a unique token
 pub fn generate_token() -> String {
     // FIXME: add timestamp to ensure uniqueness
     // uses ThreadRng, which "should be secure" as the rand docs state, we will assume it is. 

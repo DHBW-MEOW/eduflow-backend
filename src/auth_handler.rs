@@ -11,9 +11,11 @@ use rand::{TryRngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
 use token_gen::generate_token;
 
-use crate::{crypt::{crypt_types::CryptString, Cryptable}, db::{get_db_idents, DBInterface, DBObjIdent}, AppState};
+use crate::{crypt::{crypt_types::CryptString, Cryptable}, db::{DBInterface, DBObjIdent}, AppState};
 
 mod token_gen;
+
+const TOKEN_EXPIRE: u64 = 14; // days after which a token expires
 
 /// This function defines the authentication routes for the application.
 pub fn auth_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<DB>>) -> Router {
@@ -84,7 +86,7 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
     // all is right -> generate tokens so user can log in immedieately
 
     // generate local tokens for future use, every db ident element gets a local token
-    get_db_idents().iter().for_each(|variant| {
+    crate::data_handler::objects::get_db_idents().iter().for_each(|variant| {
             let result = add_new_local_token(user_id, &request.password, variant, state.clone());
             if result.is_err() {
                 error!("Failed to generate local token for variant {:?}!, user id: {}, registration partially successful!", variant, user_id);
@@ -109,7 +111,6 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
     }))
 }
 
-const TOKEN_EXPIRE: u64 = 14; // days after which a token expires
 /// handler for login requests
 async fn handle_login<DB: DBInterface + Send + Sync>(
     State(state): State<Arc<AppState<DB>>>,
@@ -154,7 +155,7 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
     }))
 }
 
-
+/// creates a new remote token for the given user
 fn create_remote_token<DB: DBInterface + Send + Sync>(user_id: i32, password: String, state: Arc<AppState<DB>>, valid_days: u64) -> Result<String, Box<dyn Error>> {
     let remote_token = generate_token();
 

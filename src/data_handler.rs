@@ -1,29 +1,28 @@
-use std::{any::type_name, sync::Arc};
+use std::{any::type_name, error::Error, sync::Arc};
 
 use axum::{
     extract::State, http::{HeaderMap, StatusCode}, routing::{delete, get, post}, Json, Router
 };
-use db_derive::SendObject;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 
-use crate::{auth_handler::{decrypt_local_token_for, verify_token}, db::{sql_helper::{to_crypt_value, SQLGenerate, SQLValue}, Course, DBInterface}, select_fields, AppState};
+use crate::{auth_handler::{decrypt_local_token_for, verify_token}, crypt::crypt_provider::CryptProviders, db::{sql_helper::{SQLGenerate, SQLValue}, DBInterface}, db_param_map, AppState};
 
-mod course;
+pub mod objects;
 
 /// This function defines the authentication routes for the application.
 pub fn data_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<DB>>) -> Router {
     // create the db tables
-    state.db.create_table_for_type::<Course>().unwrap();
+    state.db.create_table_for_type::<objects::CourseDB>().unwrap();
 
     // handles returning data
-    let get_routes = Router::new().route("/course", get(course::handle_get_course));
+    let get_routes = Router::new().route("/course", get(handle_get::<objects::CourseDB, objects::CourseSend, objects::CourseRequest, DB>));
 
     // handles creating / editing data
-    let new_routes = Router::new().route("/course", post(handle_new::<Course, CourseSend, DB>));
+    let new_routes = Router::new().route("/course", post(handle_new::<objects::CourseDB, objects::CourseSend, DB>));
 
     // handles deleting data
-    let delete_routes = Router::new().route("/course", delete(handle_delete::<Course, DB>));
+    let delete_routes = Router::new().route("/course", delete(handle_delete::<objects::CourseDB, DB>));
 
     Router::new()
         .merge(get_routes)
@@ -39,34 +38,93 @@ struct IDBody {
     id: i32
 }
 
-// objects
-// FIXME: maybe encrypt dates? booleans?
-
-// course: consists of: name (cryptstring)
-// topic: consists of: course_id (foreign key), name (cryptstring), details (cryptstring)
-// study_goal: consists of: topic_id (foreign key), deadline (date), 
-// exam: consists of: course_id (foreign key), name (cryptstring), date (date)
-
-// todo: consists of: name (cryptstring), deadline (date), details (crypstring), completed (bool)
-
-// generic functions
-
+// TRAITS that are used for objects
 /// structs implementing this trait require an id field and a corresponding SQLGenerate Type, which has a user_id field
 /// gets implemented by SendObject derive macro
 pub trait Sendable {
     /// gets the id for the send Object
     fn get_id(&self) -> Option<i32>;
-    /// returns a vector of all parameters excluding id
-    fn to_param_vec(&self) -> Vec<(String, SQLValue)>;
+    // /// returns a vector of all parameters excluding id
+    //fn to_param_vec(&self) -> Vec<(String, SQLValue)>;
 }
 
-#[derive(Debug, Deserialize, Serialize, SendObject)]
-struct CourseSend {
-    id: Option<i32>,
-    name: String,
+/// needs to be implemented for every Request type, converts the Option<T> to a map with only some values
+/// gets implemented by Selector derive macro
+pub trait ToSelect {
+    fn to_select_param_vec(&self) -> Vec<(String, SQLValue)>;
 }
 
-async fn handle_new<DBT: SQLGenerate,ST: Sendable, DB: DBInterface + Send + Sync>(
+
+/// needs to be implemented for every Send datatype, helps converting the send datatype into a parameter map, encrypts values
+pub trait ToDB {
+    fn to_param_vec(&self, key: &[u8], provider: &CryptProviders) -> Vec<(String, SQLValue)>;
+}
+
+/// needs to be implemented for send types, converts the dbt to self, decrypts crypt values
+pub trait FromDB<DBT: SQLGenerate> {
+    fn from_dbt(dbt: &DBT, key: &[u8], provider: &CryptProviders) -> Result<Self, Box<dyn Error>> where Self: Sized;
+}
+
+/// handler for get requests, retrieving objects from the db
+pub async fn handle_get<DBT: SQLGenerate, ST: FromDB<DBT>, RT: ToSelect, DB: DBInterface + Send + Sync>(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState<DB>>>,
+    Json(request): Json<RT>,
+) -> Result<Json<Vec<ST>>, StatusCode> {
+    info!("{} read requested!", type_name::<DBT>());
+
+    let auth_header = headers.get("authorization");
+    // verify that the token is valid
+    let verified_token = verify_token(auth_header, state.clone());
+    if verified_token.is_err() {
+        warn!("Authentication failure, invalid token!");
+        // invalid token, authentication failure
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let (user_id, remote_token_id, remote_token) = verified_token.unwrap();
+
+    // decrypt the corresponding local token
+    let local_token = decrypt_local_token_for(
+        user_id,
+        &DBT::get_db_ident(),
+        remote_token_id,
+        &remote_token,
+        state.clone(),
+    );
+    if local_token.is_err() {
+        error!(
+            "Failed to decrypt local token with remote token (id: {})",
+            remote_token_id
+        );
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+    let local_token = local_token.unwrap();
+
+    // retrieve db data
+    let mut params = db_param_map! { user_id: user_id };
+    // only values that have Some(T) are added to the params list
+    params.extend(request.to_select_param_vec());
+
+    let entries = state.db.select_entries::<DBT>(params);
+    if entries.is_err() {
+        error!("Error while querying DB! Tried to get {} information.", type_name::<DBT>());
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    let entries_send: Result<Vec<ST>, StatusCode> = entries.unwrap().iter().map(|entry| {
+        ST::from_dbt(entry, local_token.as_bytes(), &state.crypt_provider).map_err(|_| {
+            error!("Failed to convert database type to send type");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })
+    }).collect();
+    let entries_send = entries_send?;
+
+    info!("{} read successful, building response!", type_name::<DBT>());
+    Ok(Json(entries_send))
+}
+
+/// handler for creating new objects
+async fn handle_new<DBT: SQLGenerate,ST: Sendable + ToDB, DB: DBInterface + Send + Sync>(
     headers: HeaderMap,
     State(state): State<Arc<AppState<DB>>>,
     Json(request): Json<ST>,
@@ -107,12 +165,9 @@ async fn handle_new<DBT: SQLGenerate,ST: Sendable, DB: DBInterface + Send + Sync
         info!("Authentication successful, creation requested.");
 
         // insert user id, as this is not included in the send data type
-        let mut params= select_fields! { user_id: user_id };
+        let mut params= db_param_map! { user_id: user_id };
         // extend it with the parameters from the send type (except for user_id)
-        // FIXME: not very clean
-        params.extend(request.to_param_vec().iter().map(|(k, v)| {
-            (k.clone(), to_crypt_value(v, local_token.as_bytes(), state.clone()))
-        }).collect::<Vec<(String, SQLValue)>>());
+        params.extend(request.to_param_vec(local_token.as_bytes(), &state.crypt_provider));
 
         debug!("{:?}", params);
 
@@ -136,16 +191,13 @@ async fn handle_new<DBT: SQLGenerate,ST: Sendable, DB: DBInterface + Send + Sync
         let entry_id = request.get_id().unwrap();
 
         // prepare where params (same for every type)
-        let where_params = select_fields! {
+        let where_params = db_param_map! {
             id: entry_id,
             user_id: user_id,
         };
 
         // always update every field, retrieved from the request type
-        // FIXME: not clean but encrypts i guess
-        let params = request.to_param_vec().iter().map(|(k, v)| {
-            (k.clone(), to_crypt_value(v, local_token.as_bytes(), state.clone()))
-        }).collect::<Vec<(String, SQLValue)>>();
+        let params = request.to_param_vec(local_token.as_bytes(), &state.crypt_provider);
 
         let result = state.db.update_entry::<DBT>(params, where_params);
         if result.is_err() {
@@ -182,7 +234,7 @@ async fn handle_delete<DBT: SQLGenerate, DB: DBInterface + Send + Sync>(
     // we do not need a local token, because we do not need to decrypt or encrypt anything
 
     // all is good, delete the provided entry
-    let result = state.db.delete_entry::<DBT>(select_fields! { id: request.id, user_id: user_id});
+    let result = state.db.delete_entry::<DBT>(db_param_map! { id: request.id, user_id: user_id});
 
     if result.is_err() {
         // this happens if the sql querry is formatted wrong (which should never happen)
