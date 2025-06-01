@@ -205,7 +205,6 @@ pub struct ToDoDB {
 #[derive(Deserialize, Serialize, Selector)]
 pub struct ToDoRequest {
     id: Option<i32>,
-    course_id: Option<i32>,
     completed: Option<bool>
 }
 #[derive(Deserialize, Serialize, SendObject)]
