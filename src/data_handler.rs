@@ -4,25 +4,48 @@ use axum::{
     extract::State, http::{HeaderMap, StatusCode}, routing::{delete, get, post}, Json, Router
 };
 use log::{debug, error, info, warn};
+use objects::{CourseDB, CourseRequest, CourseSend, ExamDB, ExamRequest, ExamSend, StudyGoalDB, StudyGoalRequest, StudyGoalSend, ToDoDB, ToDoRequest, ToDoSend, TopicDB, TopicRequest, TopicSend};
 use serde::{Deserialize, Serialize};
 
 use crate::{auth_handler::{decrypt_local_token_for, verify_token}, crypt::crypt_provider::CryptProviders, db::{sql_helper::{SQLGenerate, SQLValue}, DBInterface}, db_param_map, AppState};
 
+// allow dead code but only in objects
+#[allow(dead_code)]
 pub mod objects;
 
 /// This function defines the authentication routes for the application.
 pub fn data_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<DB>>) -> Router {
     // create the db tables
-    state.db.create_table_for_type::<objects::CourseDB>().unwrap();
+    state.db.create_table_for_type::<CourseDB>().unwrap();
+    state.db.create_table_for_type::<TopicDB>().unwrap();
+    state.db.create_table_for_type::<StudyGoalDB>().unwrap();
+    state.db.create_table_for_type::<ExamDB>().unwrap();
+    state.db.create_table_for_type::<ToDoDB>().unwrap();
 
     // handles returning data
-    let get_routes = Router::new().route("/course", get(handle_get::<objects::CourseDB, objects::CourseSend, objects::CourseRequest, DB>));
+    let get_routes = Router::new()
+        .route("/course", get(handle_get::<CourseDB, CourseSend, CourseRequest, DB>))
+        .route("/topic", get(handle_get::<TopicDB, TopicSend, TopicRequest, DB>))
+        .route("/study_goal", get(handle_get::<StudyGoalDB, StudyGoalSend, StudyGoalRequest, DB>))
+        .route("/exam", get(handle_get::<ExamDB, ExamSend, ExamRequest, DB>))
+        .route("/todo", get(handle_get::<ToDoDB, ToDoSend, ToDoRequest, DB>));
 
     // handles creating / editing data
-    let new_routes = Router::new().route("/course", post(handle_new::<objects::CourseDB, objects::CourseSend, DB>));
+    let new_routes = Router::new()
+        .route("/course", post(handle_new::<CourseDB, CourseSend, DB>))
+        .route("/topic", post(handle_new::<TopicDB, TopicSend, DB>))
+        .route("/study_goal", post(handle_new::<StudyGoalDB, StudyGoalSend, DB>))
+        .route("/exam", post(handle_new::<ExamDB, ExamSend, DB>))
+        .route("/todo", post(handle_new::<ToDoDB, ToDoSend, DB>));
+
 
     // handles deleting data
-    let delete_routes = Router::new().route("/course", delete(handle_delete::<objects::CourseDB, DB>));
+    let delete_routes = Router::new()
+        .route("/course", delete(handle_delete::<CourseDB, DB>))
+        .route("/topic", delete(handle_delete::<TopicDB, DB>))
+        .route("/study_goal", delete(handle_delete::<StudyGoalDB, DB>))
+        .route("/exam", delete(handle_delete::<ExamDB, DB>))
+        .route("/todo", delete(handle_delete::<ToDoDB, DB>));
 
     Router::new()
         .merge(get_routes)
@@ -57,11 +80,13 @@ pub trait ToSelect {
 
 /// needs to be implemented for every Send datatype, helps converting the send datatype into a parameter map, encrypts values
 pub trait ToDB {
+    /// should generate a sqlvalue param map, containing every value, besides id and user_id, encrypt as much as possible
     fn to_param_vec(&self, key: &[u8], provider: &CryptProviders) -> Vec<(String, SQLValue)>;
 }
 
-/// needs to be implemented for send types, converts the dbt to self, decrypts crypt values
+/// needs to be implemented for send types
 pub trait FromDB<DBT: SQLGenerate> {
+    /// should convert a dbt to a Send type, decrypting the crypt values
     fn from_dbt(dbt: &DBT, key: &[u8], provider: &CryptProviders) -> Result<Self, Box<dyn Error>> where Self: Sized;
 }
 

@@ -8,6 +8,7 @@ pub enum SQLValue {
     Blob(Vec<u8>),
     Float64(f64),
     Date(NaiveDate),
+    Bool(bool),
 }
 
 impl Clone for SQLValue {
@@ -18,6 +19,7 @@ impl Clone for SQLValue {
             Self::Blob(arg0) => Self::Blob(arg0.clone()),
             Self::Float64(arg0) => Self::Float64(arg0.clone()),
             Self::Date(arg0) => Self::Date(arg0.clone()),
+            Self::Bool(arg0) => Self::Bool(arg0.clone()),
         }
     }
 }
@@ -46,6 +48,12 @@ impl From<Vec<u8>> for SQLValue {
 impl From<NaiveDate> for SQLValue {
     fn from(val: NaiveDate) -> Self {
         Self::Date(val)
+    }
+}
+
+impl From<bool> for SQLValue {
+    fn from(val: bool) -> Self {
+        Self::Bool(val)
     }
 }
 

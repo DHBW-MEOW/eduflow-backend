@@ -56,6 +56,7 @@ pub trait DBInterface {
 
 // AUTH structs, which are stored inside of the database
 /// struct stores username, id and password hash, used for login and registration
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct User {
     pub id: i32,
@@ -64,6 +65,7 @@ pub struct User {
     pub created_at: NaiveDateTime,
 }
 /// struct that stores the local tokens encrypted by the users password
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct LocalTokenPWCrypt {
     pub id: i32,
@@ -72,6 +74,7 @@ pub struct LocalTokenPWCrypt {
     pub used_for: DBObjIdent,
 }
 /// struct that stores the local tokens encrypted by a remote token
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct LocalTokenRTCrypt {
     pub id: i32,
@@ -81,6 +84,7 @@ pub struct LocalTokenRTCrypt {
     pub valid_until: NaiveDateTime,
 }
 /// struct that stores a hash of a remote token, used for confirming that a remote token is valid FIXME: valid_until here?
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct RemoteToken {
     pub id: i32,

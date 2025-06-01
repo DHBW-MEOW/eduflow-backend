@@ -239,6 +239,7 @@ impl DBInterface for SqliteDatabase {
                 super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
                 super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
                 super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
+                super::sql_helper::SQLValue::Bool(b) => b as &dyn ToSql,
             }
         }).collect();
 
@@ -262,6 +263,7 @@ impl DBInterface for SqliteDatabase {
                 super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
                 super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
                 super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
+                super::sql_helper::SQLValue::Bool(b) => b as &dyn ToSql,
             }
         }).collect();
 
@@ -287,6 +289,7 @@ impl DBInterface for SqliteDatabase {
                 super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
                 super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
                 super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
+                super::sql_helper::SQLValue::Bool(b) => b as &dyn ToSql,
             }
         }).collect();
 
@@ -308,6 +311,7 @@ impl DBInterface for SqliteDatabase {
                 super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
                 super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
                 super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
+                super::sql_helper::SQLValue::Bool(b) => b as &dyn ToSql,
             }
         }).collect();
 
