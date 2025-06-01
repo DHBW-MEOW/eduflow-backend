@@ -287,6 +287,10 @@ mod tests {
             ("Option<Vec<u8>>", "BLOB"),
             ("bool", "INTEGER NOT NULL"),
             ("Option<bool>", "INTEGER"),
+            ("NaiveDate", "DATE NOT NULL"),
+            ("Option<NaiveDate>", "DATE"),
+            ("NaiveDateTime", "DATETIME NOT NULL"),
+            ("Option<NaiveDateTime>", "DATETIME"),
             
             // unknown cases => blob
             ("TestType", "BLOB NOT NULL"),
