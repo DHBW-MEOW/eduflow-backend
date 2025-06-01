@@ -194,8 +194,6 @@ async fn handle_new<DBT: SQLGenerate,ST: Sendable + ToDB, DB: DBInterface + Send
         // extend it with the parameters from the send type (except for user_id)
         params.extend(request.to_param_vec(local_token.as_bytes(), &state.crypt_provider));
 
-        debug!("{:?}", params);
-
         let id = state
             .db
             .new_entry::<DBT>(params);
