@@ -217,6 +217,22 @@ impl DBInterface for SqliteDatabase {
         Ok(remote_token)
     }
 
+    fn del_local_token_rtcrypt_by_rt(&self, remote_token_id: i32) -> Result<(), Box<dyn Error>> {
+        let conn = self.get_conn()?;
+        let sql = "DELETE FROM rtcrypt_local_token WHERE decrypt_by_rt_id = ?1";
+        conn.execute(sql, params![remote_token_id])?;
+
+        Ok(())
+    }
+    
+    fn del_remote_token(&self, remote_token_id: i32) -> Result<(), Box<dyn Error>> {
+        let conn = self.get_conn()?;
+        let sql = "DELETE FROM remote_token WHERE id = ?1";
+        conn.execute(sql, params![remote_token_id])?;
+        
+        Ok(())
+    }
+
 
     // DATA OBJECTS
     /// creates and prepares a db table

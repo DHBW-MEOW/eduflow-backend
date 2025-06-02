@@ -204,6 +204,13 @@ fn create_remote_token<DB: DBInterface + Send + Sync>(user_id: i32, password: St
     Ok(remote_token)
 }
 
+fn invalidate_remote_token<DB: DBInterface + Send + Sync>(remote_token_id: i32, state: Arc<AppState<DB>>) -> Result<(), Box<dyn Error>> {
+    state.db.del_local_token_rtcrypt_by_rt(remote_token_id)?;
+    state.db.del_remote_token(remote_token_id)?;
+
+    Ok(())
+}
+
 /// parses and extracts the token and token id from authentication header
 fn split_auth_header(auth_header: &str) -> Result<(i32, String), Box<dyn Error>> {
     // check for Bearer token
@@ -222,9 +229,9 @@ fn split_auth_header(auth_header: &str) -> Result<(i32, String), Box<dyn Error>>
 
 /// verifies if the token is valid
 /// returns user_id, token_id and the token itself on success
-/// will return err if token is invalid]
+/// will return err if token is invalid or expired
+/// will delete the token entry if expired
 pub fn verify_token<DB: DBInterface + Send + Sync>(auth_header: Option<&HeaderValue>, state: Arc<AppState<DB>>) -> Result<(i32, i32, String), Box<dyn Error>> {
-    // TODO check token expiry date
     // auth header validation
     let auth_header = auth_header.ok_or("Invalid Token")?.to_str()?;
 
@@ -233,6 +240,16 @@ pub fn verify_token<DB: DBInterface + Send + Sync>(auth_header: Option<&HeaderVa
 
     // get the stored token hash
     let token_db = state.db.get_remote_token(token_id)?;
+
+    // Token is no longer valid:
+    if token_db.valid_until <= Utc::now().naive_utc() {
+        info!("Remote token expired, deleting corresponding entries!");
+
+        // invalidate remote token
+        invalidate_remote_token(token_id, state)?;
+
+        return Err("Token expired".into());
+    }
 
     // confirm that the token matches
     let db_token_hash = PasswordHash::new(&token_db.rt_hash).expect("Token Hash corrupted in DB!");

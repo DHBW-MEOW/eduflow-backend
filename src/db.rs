@@ -40,6 +40,12 @@ pub trait DBInterface {
     /// get remote token by id
     fn get_remote_token(&self, token_id: i32) -> Result<RemoteToken, Box<dyn Error>>;
 
+    // delete tokens
+    /// delete all local tokens encrypted by a certain remote token
+    fn del_local_token_rtcrypt_by_rt(&self, remote_token_id: i32) -> Result<(), Box<dyn Error>>;
+    /// delete remote token by its id
+    fn del_remote_token(&self, remote_token_id: i32) -> Result<(), Box<dyn Error>>;
+
 
     // DATA related, using generics and a few macros
     /// creates a new database table for the type T, which has to have the DBObject derive macro
