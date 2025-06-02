@@ -258,7 +258,7 @@ async fn handle_delete<DBT: SQLGenerate, DB: DBInterface + Send + Sync>(
     let result = state.db.delete_entry::<DBT>(db_param_map! { id: request.id, user_id: user_id});
 
     if result.is_err() {
-        // this happens if the sql querry is formatted wrong (which should never happen)
+        // this happens if the sql query is formatted wrong (which should never happen)
         error!("Failed to delete entry in DB!");
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }

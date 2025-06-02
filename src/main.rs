@@ -19,7 +19,7 @@ struct AppState<DB: DBInterface + Send + Sync> {
 }
 
 #[tokio::main]
-async fn main() {    
+async fn main() {
     env_logger::init();
 
     let shared_state = Arc::new(AppState {

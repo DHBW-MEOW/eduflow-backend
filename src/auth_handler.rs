@@ -83,7 +83,7 @@ async fn handle_register<DB: DBInterface + Send + Sync>(
     }
     let user_id = result.unwrap();
 
-    // all is right -> generate tokens so user can log in immedieately
+    // all is right -> generate tokens so user can log in immediately
 
     // generate local tokens for future use, every db ident element gets a local token
     crate::data_handler::objects::get_db_idents().iter().for_each(|variant| {
@@ -123,7 +123,7 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
     if user.is_err() {
         // User has not been found or an error occurred
         // FIXME: prevent username bruteforce (artificial delay)
-        warn!("User tried to log in with non existant user {}.\nPotential brute-force attack, watch out for too many of these warnings.", request.username);
+        warn!("User tried to log in with non existent user {}.\nPotential brute-force attack, watch out for too many of these warnings.", request.username);
         return Err(StatusCode::UNAUTHORIZED);
     }
     let user = user.unwrap();
@@ -184,7 +184,7 @@ fn create_remote_token<DB: DBInterface + Send + Sync>(user_id: i32, password: St
     let remote_token_id = state.db.new_remote_token(&token_hashed, user_id)?;
 
     
-    // re-encrypt every local-token the user posseses, this can also be limited to only some local-tokens to restrict permissions
+    // re-encrypt every local-token the user possesses, this can also be limited to only some local-tokens to restrict permissions
     state.db.get_local_tokens_by_user_pwcrypt(user_id)?.iter().try_for_each(|lt| {
         let local_token = lt.token_crypt.decrypt(password.as_bytes(), &state.crypt_provider)?;
 
@@ -242,7 +242,7 @@ pub fn verify_token<DB: DBInterface + Send + Sync>(auth_header: Option<&HeaderVa
 }
 /// takes a remote token, the according user id and used for attribute and decrypts the corresponding local token and returns it
 pub fn decrypt_local_token_for<DB: DBInterface + Send + Sync>(user_id: i32, used_for: &DBObjIdent, remote_token_id: i32, remote_token: &str, state: Arc<AppState<DB>>) -> Result<String, Box<dyn Error>>{
-    // get the neccessary local token and decrypt it
+    // get the necessary local token and decrypt it
     let local_token_pwcrypt = state.db.get_local_token_by_used_for_pwcrypt(user_id, used_for)?;
     // get the rt encrypted version of it:
     let local_token_rtcrypt = state.db.get_local_token_by_id_rtcrypt(local_token_pwcrypt.id, remote_token_id)?;
