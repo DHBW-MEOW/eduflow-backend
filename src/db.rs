@@ -24,9 +24,9 @@ pub trait DBInterface {
     /// create new password encrypted local token
     fn new_local_token_pwcrypt(&self, user_id: i32, token_crypt: &CryptString, used_for: &DBObjIdent) -> Result<(), Box<dyn Error>>;
     /// create a new encrypted version of an already existing local token (encrypted by a remote token)
-    fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, decryptable_by_rt_id: i32, valid_until: &NaiveDateTime) -> Result<(), Box<dyn Error>>;
+    fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, decryptable_by_rt_id: i32) -> Result<(), Box<dyn Error>>;
     /// create new remote token, results in write access, returns remote token id
-    fn new_remote_token(&self, rt_hash: &str, user_id: i32) -> Result<i64, Box<dyn Error>>;
+    fn new_remote_token(&self, rt_hash: &str, user_id: i32, valid_until: &NaiveDateTime) -> Result<i64, Box<dyn Error>>;
 
     // get tokens
     /// get all local tokens for a user encrypted by password
@@ -81,7 +81,6 @@ pub struct LocalTokenRTCrypt {
     pub local_token_id: i32,
     pub local_token_crypt: CryptString,
     pub decryptable_by_rt_id: i32,
-    pub valid_until: NaiveDateTime,
 }
 /// struct that stores a hash of a remote token, used for confirming that a remote token is valid FIXME: valid_until here?
 #[allow(dead_code)]
@@ -89,7 +88,8 @@ pub struct LocalTokenRTCrypt {
 pub struct RemoteToken {
     pub id: i32,
     pub rt_hash: String,
-    pub user_id: i32
+    pub user_id: i32,
+    pub valid_until: NaiveDateTime,
 } 
 
 

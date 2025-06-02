@@ -122,7 +122,11 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
 
     if user.is_err() {
         // User has not been found or an error occurred
-        // FIXME: prevent username bruteforce (artificial delay)
+        // prevent username bruteforce by hashing the password anyways, just to waste some time.
+        // dummy salt, has no meaning
+        let dummy_salt = SaltString::encode_b64("meow_meow".as_bytes()).unwrap();
+        let _ = Argon2::default().hash_password(request.password.as_bytes(), dummy_salt.as_salt());
+        
         warn!("User tried to log in with non existent user {}.\nPotential brute-force attack, watch out for too many of these warnings.", request.username);
         return Err(StatusCode::UNAUTHORIZED);
     }
@@ -181,7 +185,7 @@ fn create_remote_token<DB: DBInterface + Send + Sync>(user_id: i32, password: St
     let token_hashed = token_hashed.unwrap().to_string();
 
     // insert hashed token into db
-    let remote_token_id = state.db.new_remote_token(&token_hashed, user_id)?;
+    let remote_token_id = state.db.new_remote_token(&token_hashed, user_id, &valid_until)?;
 
     
     // re-encrypt every local-token the user possesses, this can also be limited to only some local-tokens to restrict permissions
@@ -189,7 +193,7 @@ fn create_remote_token<DB: DBInterface + Send + Sync>(user_id: i32, password: St
         let local_token = lt.token_crypt.decrypt(password.as_bytes(), &state.crypt_provider)?;
 
         let newcrypt_token = CryptString::encrypt(&local_token, remote_token.as_bytes(), &state.crypt_provider);
-        state.db.new_local_token_rtcrypt(lt.id, &newcrypt_token, remote_token_id.try_into().expect("Remote token ID is too big!"),  &valid_until)?;
+        state.db.new_local_token_rtcrypt(lt.id, &newcrypt_token, remote_token_id.try_into().expect("Remote token ID is too big!"))?;
 
         Ok::<(), Box<dyn Error>>(())
     })?;
