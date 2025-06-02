@@ -4,7 +4,7 @@ use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, Salt, SaltString},
 };
-use axum::{extract::State, http::{HeaderValue, StatusCode}, routing::get, Json, Router};
+use axum::{extract::State, http::{HeaderMap, HeaderValue, StatusCode}, routing::get, Json, Router};
 use chrono::{Days, Utc};
 use log::{error, info, warn};
 use rand::{TryRngCore, rngs::OsRng};
@@ -22,7 +22,7 @@ pub fn auth_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<
     Router::new()
         .route("/register", get(handle_register))
         .route("/login", get(handle_login))
-        //.route("/logout", get(|| async { "Logout Endpoint" })) // logout basically invalidates a existing token
+        .route("/logout", get(handle_logout)) // logout basically invalidates a existing token
         .with_state(state)
 }
 
@@ -43,6 +43,27 @@ struct LogoutRequest {
 #[derive(Deserialize, Serialize, Debug)]
 struct LoginResponse {
     token: String,
+}
+
+/// handler for logout requests
+async fn handle_logout<DB: DBInterface + Send + Sync>(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState<DB>>>,
+) -> Result<(), StatusCode>{
+    info!("Logout request received.");
+
+    let auth_header = headers.get("authorization");
+
+    // confirm that the given token is valid, otherwise we do not need to invalidate it, or someone would just be able to invalidate any token with its id
+    let (_, token_id, _) = verify_token(auth_header, state.clone()).map_err(|_| StatusCode::UNAUTHORIZED)?;
+
+    invalidate_remote_token(token_id, state).map_err(|_| {
+        // well here something has really gone wrong, we could validate the token but are now unable to delete it.
+        error!("Failed to invalidate token! token has been verified beforehand, meaning token is still valid!");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(())
 }
 
 /// handler for registration requests
