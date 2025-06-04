@@ -1,6 +1,8 @@
 # MEOW-backend
 
 ## Usage
+The following section has a quick and dirty description on how to communicate with the backend.
+See the bruno test files (test/bruno) for further reference.
 
 ### Connecting
 Will listen on http://0.0.0.0 port 3000 TCP
@@ -8,15 +10,6 @@ Will listen on http://0.0.0.0 port 3000 TCP
 http://0.0.0.0:3000 will be shortened to "host" in the following sections
 
 ### Authentication
-Both login and registration will return the following:
-```json
-{
-  "token": "x_abc..."
-}
-```
-
-This token is needed if you want to retrieve data, pass it as a Bearer token in the authentication header.
-
 #### Registration / login:
 Registration is only first time.
 Login is every other time.
@@ -39,17 +32,24 @@ body:
 }
 ```
 
+Both login and registration will return the following:
+```json
+{
+  "token": "x_abc..."
+}
+```
+
+This token is needed if you want to retrieve data, pass it as a Bearer token in the authentication header.
+
+The token is valid for two weeks, it will get invalidated automatically.
+
 #### logout:
 
-does not need body
+Logout does not require a body, the token passed in the auth header will be invalidated.
 
-just pass token in auth header
+Will return unauthorized if token is invalid.
 
-token will be invalidated
-
-will return unauthorized if token is invalid
-
-no body response
+Will not return any body data.
 
 ### Data
 There are always the following methods for every object types (which are listet below)
@@ -58,24 +58,36 @@ There are always the following methods for every object types (which are listet 
 - get
 - delete
 
-Every action needs a authorization header with a valid Bearer token
+Every action needs a authorization header with a valid Bearer token.
+
+If the token is invalid, will return unauthorized.
 
 #### create / edit
 url:  POST host/data/<object-name>
-the following has to be send to create or edit an object:
+
+The following has to be send to create or edit an object:
 ```json
 {
   "id": int or null,
   ... (more fields)
 }
 ```
-fields are object specific and will be listet below for every object
+Fields are object specific and will be listed below for every object.
 
-all fields need to be not null and filled out
+All fields need to be not null and filled out (id is an exception).
 
-if id is null, a new object will be created
+If id is null, a new object will be created
 
-if the is is not null, the object with its id will be edited, still all fields are to be filled out.
+If the id is not null, the object with its id will be edited, still all fields are to be filled out.
+
+Will return a json object containing the id of the edited / new object:
+```json
+{
+  "id": int
+}
+```
+
+NOTE: If id is filled out (-> edit request) but invalid, nothing will be edited, however 200 success will be returned with the id as body (as usual). It is the responsibility of the client to verify that the id is vaild.
 
 #### delete
 url: DELETE host/data/<object-name>
@@ -87,7 +99,16 @@ The following needs to be send to delete an object:
 }
 ```
 
-object with id will be deleted
+Object with id will be deleted.
+
+Will return a json object containing the id of the deleted object:
+```json
+{
+  "id": int
+}
+```
+
+NOTE: will return 200 success, even if the ID is not valid. In this case nothing will happen, because the requested deletion is already deleted (or never existed). It is the responsibility of the client to verify that the id is vaild.
 
 #### get data
 url: GET host/data/<object-name>
@@ -104,7 +125,9 @@ Filter fields are object specific and described below.
 
 Filter fields can be null or have a value, they are used to filter out objects.
 
-An array of objects (in the same format as create input body, but always with id) will be returned.
+Filter fields will be checked on equality.
+
+An array of objects (with the corresponding fields, as listed below) will be returned.
 ```json
 [
   {
@@ -114,13 +137,19 @@ An array of objects (in the same format as create input body, but always with id
   ...
 ]
 ```
+
+Will return an empty array if no objects match the filter fields.
+
 ### data objects
+
+note: int is signed 32bit
+
 #### course
 
 Fields:
 ```json
 {
-  "id": int (32bit),
+  "id": int,
   "name": string,
 }
 ```
