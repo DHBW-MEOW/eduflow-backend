@@ -63,7 +63,7 @@ Every action needs a authorization header with a valid Bearer token.
 If the token is invalid, will return unauthorized.
 
 #### create / edit
-url:  POST host/data/<object-name>
+url:  POST host/data/(object-name)
 
 The following has to be send to create or edit an object:
 ```json
@@ -90,7 +90,7 @@ Will return a json object containing the id of the edited / new object:
 NOTE: If id is filled out (-> edit request) but invalid, nothing will be edited, however 200 success will be returned with the id as body (as usual). It is the responsibility of the client to verify that the id is vaild.
 
 #### delete
-url: DELETE host/data/<object-name>
+url: DELETE host/data/(object-name)
 
 The following needs to be send to delete an object:
 ```json
@@ -111,7 +111,7 @@ Will return a json object containing the id of the deleted object:
 NOTE: will return 200 success, even if the ID is not valid. In this case nothing will happen, because the requested deletion is already deleted (or never existed). It is the responsibility of the client to verify that the id is vaild.
 
 #### get data
-url: GET host/data/<object-name>
+url: GET host/data/(object-name)
 
 The following needs to be send to get one or more objects:
 ```json
