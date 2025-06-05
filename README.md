@@ -1,4 +1,9 @@
 # MEOW-backend
+## Deployment
+Make sure a data directory exists
+(`mkdir data`)
+
+Run `cargo run` to start the service.
 
 ## Usage
 The following section has a quick and dirty description on how to communicate with the backend.
