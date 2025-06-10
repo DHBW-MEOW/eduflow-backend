@@ -4,6 +4,7 @@ use axum::{routing::get, Router};
 use crypt::crypt_provider::CryptProviders;
 use db::{sqlite::SqliteDatabase, DBInterface};
 use log::info;
+use tower_http::cors::{Any, CorsLayer};
 
 mod auth_handler;
 mod db;
@@ -27,13 +28,19 @@ async fn main() {
         crypt_provider: CryptProviders::SimpleCryptProv
     });
 
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     let auth_router = auth_handler::auth_router(shared_state.clone());
     let data_router = data_handler::data_router(shared_state.clone());
 
     let app = Router::new()
         .route("/hello", get(|| async { "Hello, World!" }))
         .nest("/auth", auth_router)
-        .nest("/data", data_router);
+        .nest("/data", data_router)
+        .layer(cors);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await

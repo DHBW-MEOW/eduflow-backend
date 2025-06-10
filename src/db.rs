@@ -33,8 +33,6 @@ pub trait DBInterface {
     fn get_local_tokens_by_user_pwcrypt(&self, user_id: i32) -> Result<Vec<LocalTokenPWCrypt>, Box<dyn Error>>;
     /// get a single local token by id encrypted by password
     fn get_local_token_by_used_for_pwcrypt(&self, user_id: i32, used_for: &DBObjIdent) -> Result<LocalTokenPWCrypt, Box<dyn Error>>;
-    /// get all local tokens encrypted by a remote token
-    //fn get_local_tokens_by_rthash(&self, remote_token_hash: &str) -> Result<Vec<LocalTokenRTCrypt>, Box<dyn Error>>;
     /// get a single local token encrypted by a remote token
     fn get_local_token_by_id_rtcrypt(&self, local_token_id: i32, remote_token_id: i32) -> Result<LocalTokenRTCrypt, Box<dyn Error>>;
     /// get remote token by id
