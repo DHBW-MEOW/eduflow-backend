@@ -1,7 +1,7 @@
-use std::{any::type_name, error::Error, sync::Arc};
+use std::{any::type_name, collections::HashMap, error::Error, sync::Arc};
 
 use axum::{
-    extract::State, http::{HeaderMap, StatusCode}, routing::{delete, get, post}, Json, Router
+    extract::{Query, State}, http::{HeaderMap, StatusCode}, routing::{delete, get, post}, Json, Router
 };
 use log::{error, info, warn};
 use objects::{CourseDB, CourseRequest, CourseSend, ExamDB, ExamRequest, ExamSend, StudyGoalDB, StudyGoalRequest, StudyGoalSend, ToDoDB, ToDoRequest, ToDoSend, TopicDB, TopicRequest, TopicSend};
@@ -92,7 +92,8 @@ pub trait FromDB<DBT: SQLGenerate> {
 pub async fn handle_get<DBT: SQLGenerate, ST: FromDB<DBT>, RT: ToSelect, DB: DBInterface + Send + Sync>(
     headers: HeaderMap,
     State(state): State<Arc<AppState<DB>>>,
-    Json(request): Json<RT>,
+    Query(params_query): Query<HashMap<String, String>>,
+    //Json(request): Json<RT>,
 ) -> Result<Json<Vec<ST>>, StatusCode> {
     info!("{} read requested!", type_name::<DBT>());
 
@@ -125,8 +126,12 @@ pub async fn handle_get<DBT: SQLGenerate, ST: FromDB<DBT>, RT: ToSelect, DB: DBI
 
     // retrieve db data
     let mut params = db_param_map! { user_id: user_id };
+
+    params_query.iter().for_each(|e| {
+        params.push((e.0.clone(), SQLValue::from(e.1.clone())));
+    });
     // only values that have Some(T) are added to the params list
-    params.extend(request.to_select_param_vec());
+    //params.extend(request.to_select_param_vec());
 
     let entries = state.db.select_entries::<DBT>(params);
     if entries.is_err() {
