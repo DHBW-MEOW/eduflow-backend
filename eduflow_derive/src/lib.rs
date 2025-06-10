@@ -2,47 +2,6 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, GenericArgument, PathArguments, Type};
 
-#[proc_macro_derive(Selector)]
-pub fn selector_derive(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let struct_name = input.ident;
-
-    //get fields
-    let fields = if let Data::Struct(DataStruct {
-        fields: Fields::Named(ref fields),
-        ..
-    }) = input.data {
-        fields
-    } else {
-        panic!("Selector needs named struct fields");
-    };
-
-    // map only Some() fields to (String, SQLWhereValue)
-    let select_map = fields.named.iter().map(|field| {
-        let field_name = field.ident.as_ref().unwrap();
-
-        quote! {
-            if self.#field_name.is_some() {
-                select_map.push( (stringify!(#field_name).to_string(), crate::db::sql_helper::SQLValue::from(self.#field_name.clone().unwrap())) );
-            }
-        }
-
-    });
-
-    let generator = quote! {
-        impl crate::data_handler::ToSelect for #struct_name {
-            fn to_select_param_vec(&self) -> Vec<(String, crate::db::sql_helper::SQLValue)> {
-                let mut select_map = vec![];
-
-                #(#select_map)*
-
-                select_map
-            }
-        }
-    };
-
-    generator.into()
-}
 #[proc_macro_derive(SendObject)]
 pub fn send_object_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

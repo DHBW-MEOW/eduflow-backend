@@ -4,7 +4,7 @@ use axum::{
     extract::{Query, State}, http::{HeaderMap, StatusCode}, routing::{delete, get, post}, Json, Router
 };
 use log::{error, info, warn};
-use objects::{CourseDB, CourseRequest, CourseSend, ExamDB, ExamRequest, ExamSend, StudyGoalDB, StudyGoalRequest, StudyGoalSend, ToDoDB, ToDoRequest, ToDoSend, TopicDB, TopicRequest, TopicSend};
+use objects::{CourseDB, CourseSend, ExamDB, ExamSend, StudyGoalDB, StudyGoalSend, ToDoDB, ToDoSend, TopicDB, TopicSend};
 use serde::{Deserialize, Serialize};
 
 use crate::{auth_handler::{decrypt_local_token_for, verify_token}, crypt::crypt_provider::CryptProviders, db::{sql_helper::{SQLGenerate, SQLValue}, DBInterface}, db_param_map, AppState};
@@ -24,11 +24,11 @@ pub fn data_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<
 
     // handles returning data
     let get_routes = Router::new()
-        .route("/course", get(handle_get::<CourseDB, CourseSend, CourseRequest, DB>))
-        .route("/topic", get(handle_get::<TopicDB, TopicSend, TopicRequest, DB>))
-        .route("/study_goal", get(handle_get::<StudyGoalDB, StudyGoalSend, StudyGoalRequest, DB>))
-        .route("/exam", get(handle_get::<ExamDB, ExamSend, ExamRequest, DB>))
-        .route("/todo", get(handle_get::<ToDoDB, ToDoSend, ToDoRequest, DB>));
+        .route("/course", get(handle_get::<CourseDB, CourseSend, DB>))
+        .route("/topic", get(handle_get::<TopicDB, TopicSend, DB>))
+        .route("/study_goal", get(handle_get::<StudyGoalDB, StudyGoalSend, DB>))
+        .route("/exam", get(handle_get::<ExamDB, ExamSend, DB>))
+        .route("/todo", get(handle_get::<ToDoDB, ToDoSend, DB>));
 
     // handles creating / editing data
     let new_routes = Router::new()
@@ -69,13 +69,6 @@ pub trait Sendable {
     fn get_id(&self) -> Option<i32>;
 }
 
-/// needs to be implemented for every Request type, converts the Option<T> to a map with only some values
-/// gets implemented by Selector derive macro
-pub trait ToSelect {
-    fn to_select_param_vec(&self) -> Vec<(String, SQLValue)>;
-}
-
-
 /// needs to be implemented for every Send datatype, helps converting the send datatype into a parameter map, encrypts values
 pub trait ToDB {
     /// should generate a sqlvalue param map, containing every value, besides id and user_id, encrypt as much as possible
@@ -89,7 +82,7 @@ pub trait FromDB<DBT: SQLGenerate> {
 }
 
 /// handler for get requests, retrieving objects from the db
-pub async fn handle_get<DBT: SQLGenerate, ST: FromDB<DBT>, RT: ToSelect, DB: DBInterface + Send + Sync>(
+pub async fn handle_get<DBT: SQLGenerate, ST: FromDB<DBT>, DB: DBInterface + Send + Sync>(
     headers: HeaderMap,
     State(state): State<Arc<AppState<DB>>>,
     Query(params_query): Query<HashMap<String, String>>,

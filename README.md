@@ -118,17 +118,9 @@ NOTE: will return 200 success, even if the ID is not valid. In this case nothing
 #### get data
 url: GET host/data/(object-name)
 
-The following needs to be send to get one or more objects:
-```json
-{
-  "id": int or null,
-  ... (more FILTER fields)
-}
-```
+Filters can be applied to only get some data objects. They have to passed as URL query parameters.
 
 Filter fields are object specific and described below.
-
-Filter fields can be null or have a value, they are used to filter out objects.
 
 Filter fields will be checked on equality.
 

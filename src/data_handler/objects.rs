@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use chrono::NaiveDate;
-use eduflow_derive::{DBObject, Selector, SendObject};
+use eduflow_derive::{DBObject, SendObject};
 use serde::{Deserialize, Serialize};
 
 use crate::{crypt::{crypt_provider::CryptProviders, crypt_types::CryptString, Cryptable}, db::{sql_helper::{SQLGenerate, SQLValue}, DBObjIdent}, db_param_map};
@@ -27,9 +27,6 @@ pub fn get_db_idents() -> [DBObjIdent; 5] {
 // send types are used for creating new objects in the db and returning objects to the client, they have to impl CourseSend and FromDB<DBT> with corresponding DB Type
 // send types derive Deserialize, Serialize, SendObject
 
-// request types needs a list of parameters which can be filtered on in a select statement
-// request types derive Deserialize. Serialize, Selector
-
 
 // Course
 #[derive(DBObject)]
@@ -38,10 +35,6 @@ pub struct CourseDB {
     pub user_id: i32,
 
     pub name: CryptString,
-}
-#[derive(Deserialize, Serialize, Selector)]
-pub struct CourseRequest {
-    id: Option<i32>,
 }
 #[derive(Deserialize, Serialize, SendObject)]
 pub struct CourseSend {
@@ -72,11 +65,6 @@ pub struct TopicDB {
     pub course_id: i32,
     pub name: CryptString,
     pub details: CryptString,
-}
-#[derive(Deserialize, Serialize, Selector)]
-pub struct TopicRequest {
-    id: Option<i32>,
-    course_id: Option<i32>,
 }
 #[derive(Deserialize, Serialize, SendObject)]
 pub struct TopicSend {
@@ -119,11 +107,6 @@ pub struct StudyGoalDB {
     pub topic_id: i32,
     pub deadline: NaiveDate, // FIXME: encrypt this?
 }
-#[derive(Deserialize, Serialize, Selector)]
-pub struct StudyGoalRequest {
-    id: Option<i32>,
-    topic_id: Option<i32>,
-}
 #[derive(Deserialize, Serialize, SendObject)]
 pub struct StudyGoalSend {
     id: Option<i32>,
@@ -154,11 +137,6 @@ pub struct ExamDB {
     pub course_id: i32,
     pub name: CryptString,
     pub date: NaiveDate, // FIXME: crypt?
-}
-#[derive(Deserialize, Serialize, Selector)]
-pub struct ExamRequest {
-    id: Option<i32>,
-    course_id: Option<i32>,
 }
 #[derive(Deserialize, Serialize, SendObject)]
 pub struct ExamSend {
@@ -200,12 +178,6 @@ pub struct ToDoDB {
     pub deadline: NaiveDate,
     pub details: CryptString,
     pub completed: bool,
-}
-
-#[derive(Deserialize, Serialize, Selector)]
-pub struct ToDoRequest {
-    id: Option<i32>,
-    completed: Option<bool>
 }
 #[derive(Deserialize, Serialize, SendObject)]
 pub struct ToDoSend {
