@@ -28,6 +28,7 @@ async fn main() {
         crypt_provider: CryptProviders::SimpleCryptProv
     });
 
+    // FIXME: any?
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
