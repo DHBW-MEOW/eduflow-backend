@@ -4,7 +4,7 @@ use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, Salt, SaltString},
 };
-use axum::{extract::State, http::{HeaderMap, HeaderValue, StatusCode}, routing::get, Json, Router};
+use axum::{extract::State, http::{HeaderMap, HeaderValue, StatusCode}, routing::post, Json, Router};
 use chrono::{Days, Utc};
 use log::{error, info, warn};
 use rand::{TryRngCore, rngs::OsRng};
@@ -20,9 +20,9 @@ const TOKEN_EXPIRE: u64 = 14; // days after which a token expires
 /// This function defines the authentication routes for the application.
 pub fn auth_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<DB>>) -> Router {
     Router::new()
-        .route("/register", get(handle_register))
-        .route("/login", get(handle_login))
-        .route("/logout", get(handle_logout)) // logout basically invalidates a existing token
+        .route("/register", post(handle_register))
+        .route("/login", post(handle_login))
+        .route("/logout", post(handle_logout)) // logout basically invalidates a existing token
         .with_state(state)
 }
 

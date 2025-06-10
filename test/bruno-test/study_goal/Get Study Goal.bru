@@ -10,9 +10,7 @@ get {
   auth: inherit
 }
 
-body:json {
-  {
-    "id": null,
-    "topic_id": null
-  }
+params:query {
+  ~id: 1
+  ~topic_id: 1
 }
