@@ -268,20 +268,13 @@ impl DBInterface for SqliteDatabase {
     
     /// selects an amount of entries and returns them
     /// params are used to select the correct entries (will be inserted at the WHERE clause)
-    fn select_entries<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>) -> Result<Vec<T>, Box<dyn Error>> {
+    fn select_entries<T: SQLGenerate>(&self, params: Vec<(String, String)>) -> Result<Vec<T>, Box<dyn Error>> {
         let conn = self.get_conn()?;
         let sql = T::get_db_select(params.iter().map(|entry| &entry.0).collect());
         let mut stmt = conn.prepare(&sql)?;
 
         let params: Vec<&dyn ToSql> = params.iter().map(|e| &e.1).map(|param| {
-            match param {
-                super::sql_helper::SQLValue::Text(s) => s as &dyn ToSql,
-                super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
-                super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
-                super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
-                super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
-                super::sql_helper::SQLValue::Bool(b) => b as &dyn ToSql,
-            }
+            param as &dyn ToSql
         }).collect();
 
         let entries = stmt.query_map(params.as_slice(), |row| {

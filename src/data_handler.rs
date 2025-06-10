@@ -125,13 +125,13 @@ pub async fn handle_get<DBT: SQLGenerate, ST: FromDB<DBT>, RT: ToSelect, DB: DBI
     let local_token = local_token.unwrap();
 
     // retrieve db data
-    let mut params = db_param_map! { user_id: user_id };
+    let mut params: Vec<(String, String)> = vec![("user_id".to_string(), user_id.to_string())];
 
+    // add parameters from query to select statement
     params_query.iter().for_each(|e| {
-        params.push((e.0.clone(), SQLValue::from(e.1.clone())));
+        params.push((e.0.clone(), e.1.clone()));
     });
-    // only values that have Some(T) are added to the params list
-    //params.extend(request.to_select_param_vec());
+    
 
     let entries = state.db.select_entries::<DBT>(params);
     if entries.is_err() {
