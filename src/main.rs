@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use axum::{routing::get, Router};
+use axum::{http::{header::{AUTHORIZATION, CONTENT_TYPE}, Method}, routing::get, Router};
 use crypt::crypt_provider::CryptProviders;
 use db::{sqlite::SqliteDatabase, DBInterface};
 use log::info;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 
 mod auth_handler;
 mod db;
@@ -28,11 +28,15 @@ async fn main() {
         crypt_provider: CryptProviders::SimpleCryptProv
     });
 
-    // FIXME: any?
+    let origins = [
+        "http://localhost:5173".parse().unwrap(), // frontend testing
+        // TODO: insert public URL here
+    ];
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(origins)
+        .allow_methods([Method::GET, Method::POST, Method::DELETE])
+        .allow_headers([AUTHORIZATION, CONTENT_TYPE])
+        .allow_credentials(true);
 
     let auth_router = auth_handler::auth_router(shared_state.clone());
     let data_router = data_handler::data_router(shared_state.clone());
