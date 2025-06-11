@@ -37,6 +37,9 @@ jobs:
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
+    - name: Rename Containerfile to Dockerfile
+      run: mv Containerfile Dockerfile
+
     - name: Build and push Docker image
       id: push
       uses: docker/build-push-action@v6
