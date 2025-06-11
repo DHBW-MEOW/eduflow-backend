@@ -1,4 +1,7 @@
-FROM rust:1.87.0-slim
+# build container
+FROM rust:1.87.0 as builder
+
+WORKDIR /app
 
 # copy derive crate
 COPY ./eduflow_derive/src ./eduflow_derive/src
@@ -11,7 +14,16 @@ COPY ./Cargo.lock .
 
 RUN cargo build --release
 
-COPY ./target/release/eduflow-backend ./eduflow-backend
+RUN cp ./target/release/eduflow-backend /eduflow-backend
+
+# runner container
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+COPY --from=builder /eduflow-backend .
+# create data directory (for db)
+RUN mkdir data
 
 EXPOSE 3000
 
