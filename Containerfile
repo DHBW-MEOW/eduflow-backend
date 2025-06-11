@@ -1,5 +1,5 @@
 # build container
-FROM rust:1.87.0 as builder
+FROM rust:1.87.0 AS builder
 
 WORKDIR /app
 
