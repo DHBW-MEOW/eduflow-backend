@@ -3,6 +3,8 @@ name: Build and push docker image
 on:
   push:
     branches: [ "release" ]
+    tags:
+        - 'v*'
 
 env:
   REGISTRY: ghcr.io
