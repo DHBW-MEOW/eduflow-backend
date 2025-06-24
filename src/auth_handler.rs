@@ -4,7 +4,7 @@ use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, Salt, SaltString},
 };
-use axum::{extract::State, http::{HeaderMap, HeaderValue, StatusCode}, routing::post, Json, Router};
+use axum::{extract::State, http::{HeaderMap, HeaderValue, StatusCode}, routing::{get, post}, Json, Router};
 use chrono::{Days, Utc};
 use log::{error, info, warn};
 use rand::{TryRngCore, rngs::OsRng};
@@ -23,6 +23,7 @@ pub fn auth_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<
         .route("/register", post(handle_register))
         .route("/login", post(handle_login))
         .route("/logout", post(handle_logout)) // logout basically invalidates a existing token
+        .route("/verify-token", get(handle_verify)) // verifies that a given token is valid
         .with_state(state)
 }
 
@@ -62,6 +63,21 @@ async fn handle_logout<DB: DBInterface + Send + Sync>(
         error!("Failed to invalidate token! token has been verified beforehand, meaning token is still valid!");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
+
+    Ok(())
+}
+
+/// handler for verifying the validity of tokens
+async fn handle_verify<DB: DBInterface + Send + Sync>(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState<DB>>>,
+) -> Result<(), StatusCode> {
+    info!("Token verification requested!");
+
+    let auth_header = headers.get("authorization");
+
+    // confirm that the given token is valid.
+    verify_token(auth_header, state.clone()).map_err(|_| StatusCode::UNAUTHORIZED)?;
 
     Ok(())
 }

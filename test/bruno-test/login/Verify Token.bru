@@ -1,0 +1,11 @@
+meta {
+  name: Verify Token
+  type: http
+  seq: 4
+}
+
+get {
+  url: http://localhost:3000/auth/verify-token
+  body: none
+  auth: inherit
+}
