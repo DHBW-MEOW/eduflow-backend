@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{env, sync::Arc};
 
 use axum::{http::{header::{AUTHORIZATION, CONTENT_TYPE}, Method}, routing::get, Router};
 use crypt::crypt_provider::CryptProviders;
@@ -29,8 +29,7 @@ async fn main() {
     });
 
     let origins = [
-        "http://localhost:5173".parse().unwrap(), // frontend testing
-        // TODO: insert public URL here
+        env::var("FRONTEND_CORS_URL").unwrap_or("http://localhost:5173".to_string()).parse().unwrap(), // get frontend url from env or use default
     ];
     let cors = CorsLayer::new()
         .allow_origin(origins)
