@@ -352,7 +352,7 @@ impl DBInterface for SqliteDatabase {
             .iter()
             .chain(where_params.iter())
             .map(|e| &e.1)
-            .map(|param| sql_value_to_to_sql(param))
+            .map(sql_value_to_to_sql)
             .collect();
 
         conn.execute(&sql, params.as_slice())?;
@@ -372,7 +372,7 @@ impl DBInterface for SqliteDatabase {
         let params: Vec<&dyn ToSql> = params
             .iter()
             .map(|e| &e.1)
-            .map(|param| sql_value_to_to_sql(param))
+            .map(sql_value_to_to_sql)
             .collect();
 
         conn.execute(&sql, params.as_slice())?;
