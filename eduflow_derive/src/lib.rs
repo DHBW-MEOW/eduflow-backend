@@ -1,25 +1,35 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, GenericArgument, PathArguments, Type};
+use syn::{
+    Data, DataStruct, DeriveInput, Fields, GenericArgument, PathArguments, Type, parse_macro_input,
+};
 
 #[proc_macro_derive(SendObject)]
 pub fn send_object_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    
+
     // get struct name
     let struct_name = input.ident;
     //get fields
     let fields = if let Data::Struct(DataStruct {
         fields: Fields::Named(ref fields),
         ..
-    }) = input.data {
+    }) = input.data
+    {
         fields
     } else {
         panic!("SendObject needs named struct fields");
     };
 
     // first field has to be id
-    let id_field_name = fields.named.get(0).expect("SendObject needs at least one field").ident.as_ref().unwrap().to_string();
+    let id_field_name = fields
+        .named
+        .get(0)
+        .expect("SendObject needs at least one field")
+        .ident
+        .as_ref()
+        .unwrap()
+        .to_string();
     if id_field_name != "id" {
         panic!("SendObject first field must be \"id\"!");
     }
@@ -40,7 +50,7 @@ pub fn send_object_derive(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(DBObject)]
 pub fn db_object_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    
+
     // get struct name
     let struct_name = input.ident;
     let struct_name_string = struct_name.to_string();
@@ -49,14 +59,22 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
     let fields = if let Data::Struct(DataStruct {
         fields: Fields::Named(ref fields),
         ..
-    }) = input.data {
+    }) = input.data
+    {
         fields
     } else {
         panic!("DBObject needs named struct fields");
     };
 
     // first field has to be id
-    let id_field_name = fields.named.get(0).expect("DBObject needs at least one field").ident.as_ref().unwrap().to_string();
+    let id_field_name = fields
+        .named
+        .get(0)
+        .expect("DBObject needs at least one field")
+        .ident
+        .as_ref()
+        .unwrap()
+        .to_string();
     if id_field_name != "id" {
         panic!("DBObject first field must be \"id\"!");
     }
@@ -74,7 +92,6 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
 
         db_table.push_str(format!(",{} {}", field_name, type_str).as_str());
         parameter_list.push_str(format!("{field_name},").as_str());
-
     });
     // remove extra comma
     parameter_list.pop();
@@ -88,7 +105,6 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
             #field_name: row.get(#i)?
         }
     });
-    
 
     quote! {
         // trait definition in main crate
@@ -177,11 +193,9 @@ pub fn db_object_derive(input: TokenStream) -> TokenStream {
     }.into()
 }
 
-
 fn get_sql_type(field_type: &Type) -> String {
     match field_type {
         Type::Path(type_path) => {
-
             let mut check_type = field_type;
 
             let mut result = " NOT NULL".to_string();
@@ -209,22 +223,18 @@ fn get_sql_type(field_type: &Type) -> String {
                         "bool" => "INTEGER".to_string(), // treat booleans as integers in sql
                         "NaiveDate" => "DATE".to_string(),
                         "NaiveDateTime" => "DATETIME".to_string(),
-                        _ => "BLOB".to_string()
+                        _ => "BLOB".to_string(),
                     }
-                },
-                _ => "BLOB".to_string()
+                }
+                _ => "BLOB".to_string(),
             } + &result;
 
             result
+        }
 
-            
-        },
-
-        _ => "BLOB".into()
+        _ => "BLOB".into(),
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -250,7 +260,6 @@ mod tests {
             ("Option<NaiveDate>", "DATE"),
             ("NaiveDateTime", "DATETIME NOT NULL"),
             ("Option<NaiveDateTime>", "DATETIME"),
-            
             // unknown cases => blob
             ("TestType", "BLOB NOT NULL"),
             ("Option<TestType>", "BLOB"),
