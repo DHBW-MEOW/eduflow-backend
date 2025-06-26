@@ -15,15 +15,22 @@ pub enum CryptProviders {
     SimpleCryptProv,
 }
 
-pub fn decrypt(data_crypt: &[u8], key: &[u8], crypt_provider: &CryptProviders) -> Result<Vec<u8>, Box<dyn Error>> {
+pub fn decrypt(
+    data_crypt: &[u8],
+    key: &[u8],
+    crypt_provider: &CryptProviders,
+) -> Result<Vec<u8>, Box<dyn Error>> {
     match crypt_provider {
         CryptProviders::SimpleCryptProv => SimpleCryptProv::decrypt(data_crypt, key),
     }
 }
 
-pub fn encrypt(data: &[u8], key: &[u8], crypt_provider: &CryptProviders) -> Result<Vec<u8>, Box<dyn Error>> {
+pub fn encrypt(
+    data: &[u8],
+    key: &[u8],
+    crypt_provider: &CryptProviders,
+) -> Result<Vec<u8>, Box<dyn Error>> {
     match crypt_provider {
         CryptProviders::SimpleCryptProv => SimpleCryptProv::encrypt(data, key),
     }
 }
-

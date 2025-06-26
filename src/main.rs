@@ -1,22 +1,29 @@
 use std::{env, sync::Arc};
 
-use axum::{http::{header::{AUTHORIZATION, CONTENT_TYPE}, Method}, routing::get, Router};
+use axum::{
+    Router,
+    http::{
+        Method,
+        header::{AUTHORIZATION, CONTENT_TYPE},
+    },
+    routing::get,
+};
 use crypt::crypt_provider::CryptProviders;
-use db::{sqlite::SqliteDatabase, DBInterface};
+use db::{DBInterface, sqlite::SqliteDatabase};
 use log::info;
 use tower_http::cors::CorsLayer;
 
 mod auth_handler;
-mod db;
 mod crypt;
 mod data_handler;
+mod db;
 
 // Define the application state that will be shared across handlers
 struct AppState<DB: DBInterface + Send + Sync> {
     // db needs to be send and sync because it will be shared across multiple threads
     // this can be any struct that implements DBInterface
     db: Box<DB>,
-    crypt_provider: CryptProviders
+    crypt_provider: CryptProviders,
 }
 
 #[tokio::main]
@@ -25,11 +32,14 @@ async fn main() {
 
     let shared_state = Arc::new(AppState {
         db: Box::new(SqliteDatabase::new("data/db.sqlite").expect("Failed to create database")),
-        crypt_provider: CryptProviders::SimpleCryptProv
+        crypt_provider: CryptProviders::SimpleCryptProv,
     });
 
     let origins = [
-        env::var("FRONTEND_CORS_URL").unwrap_or("http://localhost:5173".to_string()).parse().unwrap(), // get frontend url from env or use default
+        env::var("FRONTEND_CORS_URL")
+            .unwrap_or("http://localhost:5173".to_string())
+            .parse()
+            .unwrap(), // get frontend url from env or use default
     ];
     let cors = CorsLayer::new()
         .allow_origin(origins)
@@ -51,9 +61,8 @@ async fn main() {
         .expect("Failed to bind TCP listener");
 
     let server = axum::serve(listener, app);
-        
+
     info!("Server running on http://localhost:3000");
 
     server.await.expect("Failed to start server");
-
 }

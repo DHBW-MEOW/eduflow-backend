@@ -91,5 +91,7 @@ pub trait SQLGenerate {
     /// returns DBObjIdent, which is unique to a struct (used for local token used_for)
     fn get_db_ident() -> crate::db::DBObjIdent;
     /// converts a rusqlite Row into an object of itself
-    fn row_to_struct(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> where Self: Sized;
+    fn row_to_struct(row: &rusqlite::Row) -> Result<Self, rusqlite::Error>
+    where
+        Self: Sized;
 }

@@ -1,13 +1,28 @@
 use std::{any::type_name, collections::HashMap, error::Error, sync::Arc};
 
 use axum::{
-    extract::{Query, State}, http::{HeaderMap, StatusCode}, routing::{delete, get, post}, Json, Router
+    Json, Router,
+    extract::{Query, State},
+    http::{HeaderMap, StatusCode},
+    routing::{delete, get, post},
 };
 use log::{error, info, warn};
-use objects::{CourseDB, CourseSend, ExamDB, ExamSend, StudyGoalDB, StudyGoalSend, ToDoDB, ToDoSend, TopicDB, TopicSend};
+use objects::{
+    CourseDB, CourseSend, ExamDB, ExamSend, StudyGoalDB, StudyGoalSend, ToDoDB, ToDoSend, TopicDB,
+    TopicSend,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::{auth_handler::{decrypt_local_token_for, verify_token}, crypt::crypt_provider::CryptProviders, db::{sql_helper::{SQLGenerate, SQLValue}, DBInterface}, db_param_map, AppState};
+use crate::{
+    AppState,
+    auth_handler::{decrypt_local_token_for, verify_token},
+    crypt::crypt_provider::CryptProviders,
+    db::{
+        DBInterface,
+        sql_helper::{SQLGenerate, SQLValue},
+    },
+    db_param_map,
+};
 
 // allow dead code but only in objects
 #[allow(dead_code)]
@@ -26,7 +41,10 @@ pub fn data_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<
     let get_routes = Router::new()
         .route("/course", get(handle_get::<CourseDB, CourseSend, DB>))
         .route("/topic", get(handle_get::<TopicDB, TopicSend, DB>))
-        .route("/study_goal", get(handle_get::<StudyGoalDB, StudyGoalSend, DB>))
+        .route(
+            "/study_goal",
+            get(handle_get::<StudyGoalDB, StudyGoalSend, DB>),
+        )
         .route("/exam", get(handle_get::<ExamDB, ExamSend, DB>))
         .route("/todo", get(handle_get::<ToDoDB, ToDoSend, DB>));
 
@@ -34,10 +52,12 @@ pub fn data_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<
     let new_routes = Router::new()
         .route("/course", post(handle_new::<CourseDB, CourseSend, DB>))
         .route("/topic", post(handle_new::<TopicDB, TopicSend, DB>))
-        .route("/study_goal", post(handle_new::<StudyGoalDB, StudyGoalSend, DB>))
+        .route(
+            "/study_goal",
+            post(handle_new::<StudyGoalDB, StudyGoalSend, DB>),
+        )
         .route("/exam", post(handle_new::<ExamDB, ExamSend, DB>))
         .route("/todo", post(handle_new::<ToDoDB, ToDoSend, DB>));
-
 
     // handles deleting data
     let delete_routes = Router::new()
@@ -58,7 +78,7 @@ pub fn data_router<DB: DBInterface + Send + Sync + 'static>(state: Arc<AppState<
 /// response / request with an id
 #[derive(Deserialize, Serialize, Debug)]
 struct IDBody {
-    id: i32
+    id: i32,
 }
 
 // TRAITS that are used for objects
@@ -78,7 +98,9 @@ pub trait ToDB {
 /// needs to be implemented for send types
 pub trait FromDB<DBT: SQLGenerate> {
     /// should convert a dbt to a Send type, decrypting the crypt values
-    fn from_dbt(dbt: &DBT, key: &[u8], provider: &CryptProviders) -> Result<Self, Box<dyn Error>> where Self: Sized;
+    fn from_dbt(dbt: &DBT, key: &[u8], provider: &CryptProviders) -> Result<Self, Box<dyn Error>>
+    where
+        Self: Sized;
 }
 
 /// handler for get requests, retrieving objects from the db
@@ -124,20 +146,26 @@ pub async fn handle_get<DBT: SQLGenerate, ST: FromDB<DBT>, DB: DBInterface + Sen
     params_query.iter().for_each(|e| {
         params.push((e.0.clone(), e.1.clone()));
     });
-    
 
     let entries = state.db.select_entries::<DBT>(params);
     if entries.is_err() {
-        error!("Error while querying DB! Tried to get {} information.", type_name::<DBT>());
+        error!(
+            "Error while querying DB! Tried to get {} information.",
+            type_name::<DBT>()
+        );
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
 
-    let entries_send: Result<Vec<ST>, StatusCode> = entries.unwrap().iter().map(|entry| {
-        ST::from_dbt(entry, local_token.as_bytes(), &state.crypt_provider).map_err(|_| {
-            error!("Failed to convert database type to send type");
-            StatusCode::INTERNAL_SERVER_ERROR
+    let entries_send: Result<Vec<ST>, StatusCode> = entries
+        .unwrap()
+        .iter()
+        .map(|entry| {
+            ST::from_dbt(entry, local_token.as_bytes(), &state.crypt_provider).map_err(|_| {
+                error!("Failed to convert database type to send type");
+                StatusCode::INTERNAL_SERVER_ERROR
+            })
         })
-    }).collect();
+        .collect();
     let entries_send = entries_send?;
 
     info!("{} read successful, building response!", type_name::<DBT>());
@@ -145,7 +173,7 @@ pub async fn handle_get<DBT: SQLGenerate, ST: FromDB<DBT>, DB: DBInterface + Sen
 }
 
 /// handler for creating new objects
-async fn handle_new<DBT: SQLGenerate,ST: Sendable + ToDB, DB: DBInterface + Send + Sync>(
+async fn handle_new<DBT: SQLGenerate, ST: Sendable + ToDB, DB: DBInterface + Send + Sync>(
     headers: HeaderMap,
     State(state): State<Arc<AppState<DB>>>,
     Json(request): Json<ST>,
@@ -186,13 +214,11 @@ async fn handle_new<DBT: SQLGenerate,ST: Sendable + ToDB, DB: DBInterface + Send
         info!("Authentication successful, creation requested.");
 
         // insert user id, as this is not included in the send data type
-        let mut params= db_param_map! { user_id: user_id };
+        let mut params = db_param_map! { user_id: user_id };
         // extend it with the parameters from the send type (except for user_id)
         params.extend(request.to_param_vec(local_token.as_bytes(), &state.crypt_provider));
 
-        let id = state
-            .db
-            .new_entry::<DBT>(params);
+        let id = state.db.new_entry::<DBT>(params);
         if id.is_err() {
             error!(
                 "Failed to insert new {} into db! (user id: {})",
@@ -220,7 +246,12 @@ async fn handle_new<DBT: SQLGenerate,ST: Sendable + ToDB, DB: DBInterface + Send
 
         let result = state.db.update_entry::<DBT>(params, where_params);
         if result.is_err() {
-            error!("Failed to edit {} in DB! {} id: {}", type_name::<DBT>(), type_name::<DBT>(), entry_id);
+            error!(
+                "Failed to edit {} in DB! {} id: {}",
+                type_name::<DBT>(),
+                type_name::<DBT>(),
+                entry_id
+            );
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
 
@@ -229,7 +260,6 @@ async fn handle_new<DBT: SQLGenerate,ST: Sendable + ToDB, DB: DBInterface + Send
         Ok(Json(IDBody { id: entry_id }))
     }
 }
-
 
 /// handles delete request for a type T which has to implement SQLGenerate
 /// T also has to have the id and user_id field for this to work, as those two are used to strictly identify an element in the DB
@@ -253,7 +283,9 @@ async fn handle_delete<DBT: SQLGenerate, DB: DBInterface + Send + Sync>(
     // we do not need a local token, because we do not need to decrypt or encrypt anything
 
     // all is good, delete the provided entry
-    let result = state.db.delete_entry::<DBT>(db_param_map! { id: request.id, user_id: user_id});
+    let result = state
+        .db
+        .delete_entry::<DBT>(db_param_map! { id: request.id, user_id: user_id});
 
     if result.is_err() {
         // this happens if the sql query is formatted wrong (which should never happen)
@@ -262,5 +294,5 @@ async fn handle_delete<DBT: SQLGenerate, DB: DBInterface + Send + Sync>(
     }
 
     info!("{} deletion successful.", type_name::<DBT>());
-    Ok(Json(IDBody {id: request.id}))
+    Ok(Json(IDBody { id: request.id }))
 }

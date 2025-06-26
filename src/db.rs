@@ -11,7 +11,7 @@ pub mod sqlite;
 /// Database interface trait that defines the methods for database operations.
 pub trait DBInterface {
     // AUTH
-    
+
     // user related
     /// create a new user, returns the user id
     fn new_user(&self, username: &str, password_hash: &str) -> Result<i32, Box<dyn Error>>;
@@ -22,19 +22,45 @@ pub trait DBInterface {
 
     // write tokens
     /// create new password encrypted local token
-    fn new_local_token_pwcrypt(&self, user_id: i32, token_crypt: &CryptString, used_for: &DBObjIdent) -> Result<(), Box<dyn Error>>;
+    fn new_local_token_pwcrypt(
+        &self,
+        user_id: i32,
+        token_crypt: &CryptString,
+        used_for: &DBObjIdent,
+    ) -> Result<(), Box<dyn Error>>;
     /// create a new encrypted version of an already existing local token (encrypted by a remote token)
-    fn new_local_token_rtcrypt(&self, local_token_id: i32, local_token_crypt: &CryptString, decryptable_by_rt_id: i32) -> Result<(), Box<dyn Error>>;
+    fn new_local_token_rtcrypt(
+        &self,
+        local_token_id: i32,
+        local_token_crypt: &CryptString,
+        decryptable_by_rt_id: i32,
+    ) -> Result<(), Box<dyn Error>>;
     /// create new remote token, results in write access, returns remote token id
-    fn new_remote_token(&self, rt_hash: &str, user_id: i32, valid_until: &NaiveDateTime) -> Result<i64, Box<dyn Error>>;
+    fn new_remote_token(
+        &self,
+        rt_hash: &str,
+        user_id: i32,
+        valid_until: &NaiveDateTime,
+    ) -> Result<i64, Box<dyn Error>>;
 
     // get tokens
     /// get all local tokens for a user encrypted by password
-    fn get_local_tokens_by_user_pwcrypt(&self, user_id: i32) -> Result<Vec<LocalTokenPWCrypt>, Box<dyn Error>>;
+    fn get_local_tokens_by_user_pwcrypt(
+        &self,
+        user_id: i32,
+    ) -> Result<Vec<LocalTokenPWCrypt>, Box<dyn Error>>;
     /// get a single local token by id encrypted by password
-    fn get_local_token_by_used_for_pwcrypt(&self, user_id: i32, used_for: &DBObjIdent) -> Result<LocalTokenPWCrypt, Box<dyn Error>>;
+    fn get_local_token_by_used_for_pwcrypt(
+        &self,
+        user_id: i32,
+        used_for: &DBObjIdent,
+    ) -> Result<LocalTokenPWCrypt, Box<dyn Error>>;
     /// get a single local token encrypted by a remote token
-    fn get_local_token_by_id_rtcrypt(&self, local_token_id: i32, remote_token_id: i32) -> Result<LocalTokenRTCrypt, Box<dyn Error>>;
+    fn get_local_token_by_id_rtcrypt(
+        &self,
+        local_token_id: i32,
+        remote_token_id: i32,
+    ) -> Result<LocalTokenRTCrypt, Box<dyn Error>>;
     /// get remote token by id
     fn get_remote_token(&self, token_id: i32) -> Result<RemoteToken, Box<dyn Error>>;
 
@@ -44,18 +70,30 @@ pub trait DBInterface {
     /// delete remote token by its id
     fn del_remote_token(&self, remote_token_id: i32) -> Result<(), Box<dyn Error>>;
 
-
     // DATA related, using generics and a few macros
     /// creates a new database table for the type T, which has to have the DBObject derive macro
     fn create_table_for_type<T: SQLGenerate>(&self) -> Result<(), Box<dyn Error>>;
     /// enters a new entry into the database table of the type T, a table using create_table_for_type has to be created beforehand.
-    fn new_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>) -> Result<i32, Box<dyn Error>>;
+    fn new_entry<T: SQLGenerate>(
+        &self,
+        params: Vec<(String, SQLValue)>,
+    ) -> Result<i32, Box<dyn Error>>;
     /// selects entries with where statement depending on which params are passed (values are params from query url, so we do not know which type, therefore everything is handled as String)
-    fn select_entries<T: SQLGenerate>(&self, params: Vec<(String, String)>) -> Result<Vec<T>, Box<dyn Error>>;
+    fn select_entries<T: SQLGenerate>(
+        &self,
+        params: Vec<(String, String)>,
+    ) -> Result<Vec<T>, Box<dyn Error>>;
     /// updates a single row, params are the changed parameters, where_params is the WHERE statement which selects what rows to update
-    fn update_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>, where_params: Vec<(String, SQLValue)>) -> Result<(), Box<dyn Error>>;
+    fn update_entry<T: SQLGenerate>(
+        &self,
+        params: Vec<(String, SQLValue)>,
+        where_params: Vec<(String, SQLValue)>,
+    ) -> Result<(), Box<dyn Error>>;
     /// deletes one or more entries, params determines the where clause which selects what entries to delete
-    fn delete_entry<T: SQLGenerate>(&self, params: Vec<(String, SQLValue)>) -> Result<(), Box<dyn Error>>;
+    fn delete_entry<T: SQLGenerate>(
+        &self,
+        params: Vec<(String, SQLValue)>,
+    ) -> Result<(), Box<dyn Error>>;
 }
 
 // AUTH structs, which are stored inside of the database
@@ -94,8 +132,7 @@ pub struct RemoteToken {
     pub rt_hash: String,
     pub user_id: i32,
     pub valid_until: NaiveDateTime,
-} 
-
+}
 
 /// DB object identifier, unique per DBObject
 #[derive(Debug)]

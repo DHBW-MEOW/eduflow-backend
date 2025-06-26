@@ -4,14 +4,23 @@ use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, Salt, SaltString},
 };
-use axum::{extract::State, http::{HeaderMap, HeaderValue, StatusCode}, routing::{get, post}, Json, Router};
+use axum::{
+    Json, Router,
+    extract::State,
+    http::{HeaderMap, HeaderValue, StatusCode},
+    routing::{get, post},
+};
 use chrono::{Days, Utc};
 use log::{error, info, warn};
 use rand::{TryRngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
 use token_gen::generate_token;
 
-use crate::{crypt::{crypt_types::CryptString, Cryptable}, db::{DBInterface, DBObjIdent}, AppState};
+use crate::{
+    AppState,
+    crypt::{Cryptable, crypt_types::CryptString},
+    db::{DBInterface, DBObjIdent},
+};
 
 mod token_gen;
 
@@ -50,13 +59,14 @@ struct LoginResponse {
 async fn handle_logout<DB: DBInterface + Send + Sync>(
     headers: HeaderMap,
     State(state): State<Arc<AppState<DB>>>,
-) -> Result<(), StatusCode>{
+) -> Result<(), StatusCode> {
     info!("Logout request received.");
 
     let auth_header = headers.get("authorization");
 
     // confirm that the given token is valid, otherwise we do not need to invalidate it, or someone would just be able to invalidate any token with its id
-    let (_, token_id, _) = verify_token(auth_header, state.clone()).map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let (_, token_id, _) =
+        verify_token(auth_header, state.clone()).map_err(|_| StatusCode::UNAUTHORIZED)?;
 
     invalidate_remote_token(token_id, state).map_err(|_| {
         // well here something has really gone wrong, we could validate the token but are now unable to delete it.
@@ -162,11 +172,17 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
         // prevent timing attacks and hash the password anyways
         // dummy salt, has no meaning
         let mut dummy_salt_bytes = [0u8; Salt::RECOMMENDED_LENGTH];
-        OsRng.try_fill_bytes(&mut dummy_salt_bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        let dummy_salt = SaltString::encode_b64(&dummy_salt_bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        OsRng
+            .try_fill_bytes(&mut dummy_salt_bytes)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let dummy_salt = SaltString::encode_b64(&dummy_salt_bytes)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         let _ = Argon2::default().hash_password(request.password.as_bytes(), dummy_salt.as_salt());
-        
-        warn!("User tried to log in with non existent user {}.\nPotential brute-force attack, watch out for too many of these warnings.", request.username);
+
+        warn!(
+            "User tried to log in with non existent user {}.\nPotential brute-force attack, watch out for too many of these warnings.",
+            request.username
+        );
         return Err(StatusCode::UNAUTHORIZED);
     }
     let user = user.unwrap();
@@ -199,7 +215,12 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
 }
 
 /// creates a new remote token for the given user
-fn create_remote_token<DB: DBInterface + Send + Sync>(user_id: i32, password: String, state: Arc<AppState<DB>>, valid_days: u64) -> Result<String, Box<dyn Error>> {
+fn create_remote_token<DB: DBInterface + Send + Sync>(
+    user_id: i32,
+    password: String,
+    state: Arc<AppState<DB>>,
+    valid_days: u64,
+) -> Result<String, Box<dyn Error>> {
     let remote_token = generate_token();
 
     let valid_until = Utc::now().naive_utc() + Days::new(valid_days);
@@ -224,18 +245,32 @@ fn create_remote_token<DB: DBInterface + Send + Sync>(user_id: i32, password: St
     let token_hashed = token_hashed.unwrap().to_string();
 
     // insert hashed token into db
-    let remote_token_id = state.db.new_remote_token(&token_hashed, user_id, &valid_until)?;
+    let remote_token_id = state
+        .db
+        .new_remote_token(&token_hashed, user_id, &valid_until)?;
 
-    
     // re-encrypt every local-token the user possesses, this can also be limited to only some local-tokens to restrict permissions
-    state.db.get_local_tokens_by_user_pwcrypt(user_id)?.iter().try_for_each(|lt| {
-        let local_token = lt.token_crypt.decrypt(password.as_bytes(), &state.crypt_provider)?;
+    state
+        .db
+        .get_local_tokens_by_user_pwcrypt(user_id)?
+        .iter()
+        .try_for_each(|lt| {
+            let local_token = lt
+                .token_crypt
+                .decrypt(password.as_bytes(), &state.crypt_provider)?;
 
-        let newcrypt_token = CryptString::encrypt(&local_token, remote_token.as_bytes(), &state.crypt_provider);
-        state.db.new_local_token_rtcrypt(lt.id, &newcrypt_token, remote_token_id.try_into().expect("Remote token ID is too big!"))?;
+            let newcrypt_token =
+                CryptString::encrypt(&local_token, remote_token.as_bytes(), &state.crypt_provider);
+            state.db.new_local_token_rtcrypt(
+                lt.id,
+                &newcrypt_token,
+                remote_token_id
+                    .try_into()
+                    .expect("Remote token ID is too big!"),
+            )?;
 
-        Ok::<(), Box<dyn Error>>(())
-    })?;
+            Ok::<(), Box<dyn Error>>(())
+        })?;
 
     // prefix the token with its token id
     let remote_token = remote_token_id.to_string() + "_" + &remote_token;
@@ -243,7 +278,10 @@ fn create_remote_token<DB: DBInterface + Send + Sync>(user_id: i32, password: St
     Ok(remote_token)
 }
 
-fn invalidate_remote_token<DB: DBInterface + Send + Sync>(remote_token_id: i32, state: Arc<AppState<DB>>) -> Result<(), Box<dyn Error>> {
+fn invalidate_remote_token<DB: DBInterface + Send + Sync>(
+    remote_token_id: i32,
+    state: Arc<AppState<DB>>,
+) -> Result<(), Box<dyn Error>> {
     state.db.del_local_token_rtcrypt_by_rt(remote_token_id)?;
     state.db.del_remote_token(remote_token_id)?;
 
@@ -255,7 +293,7 @@ fn split_auth_header(auth_header: &str) -> Result<(i32, String), Box<dyn Error>>
     // check for Bearer token
     let token = auth_header.strip_prefix("Bearer ").ok_or("Invalid Token")?;
 
-    // split the user id 
+    // split the user id
     let split: Vec<&str> = token.split_terminator("_").collect();
 
     let token_id = split.first().ok_or("Invalid Token")?;
@@ -263,14 +301,16 @@ fn split_auth_header(auth_header: &str) -> Result<(i32, String), Box<dyn Error>>
 
     // convert user id to i32
     Ok((token_id.parse()?, token.to_string()))
-
 }
 
 /// verifies if the token is valid
 /// returns user_id, token_id and the token itself on success
 /// will return err if token is invalid or expired
 /// will delete the token entry if expired
-pub fn verify_token<DB: DBInterface + Send + Sync>(auth_header: Option<&HeaderValue>, state: Arc<AppState<DB>>) -> Result<(i32, i32, String), Box<dyn Error>> {
+pub fn verify_token<DB: DBInterface + Send + Sync>(
+    auth_header: Option<&HeaderValue>,
+    state: Arc<AppState<DB>>,
+) -> Result<(i32, i32, String), Box<dyn Error>> {
     // auth header validation
     let auth_header = auth_header.ok_or("Invalid Token")?.to_str()?;
 
@@ -298,26 +338,45 @@ pub fn verify_token<DB: DBInterface + Send + Sync>(auth_header: Option<&HeaderVa
         Ok(_) => Ok((token_db.user_id, token_id, token)),
         Err(_) => Err("Invalid Token".into()),
     }
-
 }
 /// takes a remote token, the according user id and used for attribute and decrypts the corresponding local token and returns it
-pub fn decrypt_local_token_for<DB: DBInterface + Send + Sync>(user_id: i32, used_for: &DBObjIdent, remote_token_id: i32, remote_token: &str, state: Arc<AppState<DB>>) -> Result<String, Box<dyn Error>>{
+pub fn decrypt_local_token_for<DB: DBInterface + Send + Sync>(
+    user_id: i32,
+    used_for: &DBObjIdent,
+    remote_token_id: i32,
+    remote_token: &str,
+    state: Arc<AppState<DB>>,
+) -> Result<String, Box<dyn Error>> {
     // get the necessary local token and decrypt it
-    let local_token_pwcrypt = state.db.get_local_token_by_used_for_pwcrypt(user_id, used_for)?;
+    let local_token_pwcrypt = state
+        .db
+        .get_local_token_by_used_for_pwcrypt(user_id, used_for)?;
     // get the rt encrypted version of it:
-    let local_token_rtcrypt = state.db.get_local_token_by_id_rtcrypt(local_token_pwcrypt.id, remote_token_id)?;
-    
+    let local_token_rtcrypt = state
+        .db
+        .get_local_token_by_id_rtcrypt(local_token_pwcrypt.id, remote_token_id)?;
+
     // decrypt the local token
-    let local_token = local_token_rtcrypt.local_token_crypt.decrypt(remote_token.as_bytes(), &state.crypt_provider)?;
-    
+    let local_token = local_token_rtcrypt
+        .local_token_crypt
+        .decrypt(remote_token.as_bytes(), &state.crypt_provider)?;
+
     Ok(local_token)
 }
 
 /// generates and adds a password encrypted local token to the Database
-pub fn add_new_local_token<DB: DBInterface + Send + Sync>(user_id: i32, password: &str, used_for: &DBObjIdent, state: Arc<AppState<DB>>) -> Result<(), Box<dyn Error>>{
+pub fn add_new_local_token<DB: DBInterface + Send + Sync>(
+    user_id: i32,
+    password: &str,
+    used_for: &DBObjIdent,
+    state: Arc<AppState<DB>>,
+) -> Result<(), Box<dyn Error>> {
     let local_token = generate_token();
-    let local_token_crypt = CryptString::encrypt(&local_token, password.as_bytes(), &state.crypt_provider);
+    let local_token_crypt =
+        CryptString::encrypt(&local_token, password.as_bytes(), &state.crypt_provider);
 
-    state.db.new_local_token_pwcrypt(user_id, &local_token_crypt, used_for)?;
+    state
+        .db
+        .new_local_token_pwcrypt(user_id, &local_token_crypt, used_for)?;
     Ok(())
 }

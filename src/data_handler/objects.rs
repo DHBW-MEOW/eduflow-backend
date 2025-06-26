@@ -4,13 +4,26 @@ use chrono::NaiveDate;
 use eduflow_derive::{DBObject, SendObject};
 use serde::{Deserialize, Serialize};
 
-use crate::{crypt::{crypt_provider::CryptProviders, crypt_types::CryptString, Cryptable}, db::{sql_helper::{SQLGenerate, SQLValue}, DBObjIdent}, db_param_map};
+use crate::{
+    crypt::{Cryptable, crypt_provider::CryptProviders, crypt_types::CryptString},
+    db::{
+        DBObjIdent,
+        sql_helper::{SQLGenerate, SQLValue},
+    },
+    db_param_map,
+};
 
 use super::{FromDB, ToDB};
 
 /// create a list of all db object idents here
 pub fn get_db_idents() -> [DBObjIdent; 5] {
-    [CourseDB::get_db_ident(), TopicDB::get_db_ident(), StudyGoalDB::get_db_ident(), ExamDB::get_db_ident(), ToDoDB::get_db_ident()]
+    [
+        CourseDB::get_db_ident(),
+        TopicDB::get_db_ident(),
+        StudyGoalDB::get_db_ident(),
+        ExamDB::get_db_ident(),
+        ToDoDB::get_db_ident(),
+    ]
 }
 
 // objects
@@ -26,7 +39,6 @@ pub fn get_db_idents() -> [DBObjIdent; 5] {
 // send types need an id field at first position (Option<i32>)
 // send types are used for creating new objects in the db and returning objects to the client, they have to impl CourseSend and FromDB<DBT> with corresponding DB Type
 // send types derive Deserialize, Serialize, SendObject
-
 
 // Course
 #[derive(DBObject)]
@@ -50,9 +62,16 @@ impl ToDB for CourseSend {
     }
 }
 impl FromDB<CourseDB> for CourseSend {
-    fn from_dbt(dbt: &CourseDB, key: &[u8], provider: &CryptProviders) -> Result<Self, Box<dyn Error>> {
+    fn from_dbt(
+        dbt: &CourseDB,
+        key: &[u8],
+        provider: &CryptProviders,
+    ) -> Result<Self, Box<dyn Error>> {
         let name = dbt.name.decrypt(key, provider);
-        Ok(Self { id: Some(dbt.id), name: name? })
+        Ok(Self {
+            id: Some(dbt.id),
+            name: name?,
+        })
     }
 }
 
@@ -86,7 +105,11 @@ impl ToDB for TopicSend {
     }
 }
 impl FromDB<TopicDB> for TopicSend {
-    fn from_dbt(dbt: &TopicDB, key: &[u8], provider: &CryptProviders) -> Result<Self, Box<dyn Error>> {
+    fn from_dbt(
+        dbt: &TopicDB,
+        key: &[u8],
+        provider: &CryptProviders,
+    ) -> Result<Self, Box<dyn Error>> {
         let name = dbt.name.decrypt(key, provider);
         let details = dbt.details.decrypt(key, provider);
         Ok(Self {
@@ -124,7 +147,11 @@ impl ToDB for StudyGoalSend {
 }
 impl FromDB<StudyGoalDB> for StudyGoalSend {
     fn from_dbt(dbt: &StudyGoalDB, _: &[u8], _: &CryptProviders) -> Result<Self, Box<dyn Error>> {
-        Ok(Self { id: Some(dbt.id), topic_id: dbt.topic_id, deadline: dbt.deadline })
+        Ok(Self {
+            id: Some(dbt.id),
+            topic_id: dbt.topic_id,
+            deadline: dbt.deadline,
+        })
     }
 }
 
@@ -157,7 +184,11 @@ impl ToDB for ExamSend {
     }
 }
 impl FromDB<ExamDB> for ExamSend {
-    fn from_dbt(dbt: &ExamDB, key: &[u8], provider: &CryptProviders) -> Result<Self, Box<dyn Error>> {
+    fn from_dbt(
+        dbt: &ExamDB,
+        key: &[u8],
+        provider: &CryptProviders,
+    ) -> Result<Self, Box<dyn Error>> {
         let name = dbt.name.decrypt(key, provider);
         Ok(Self {
             id: Some(dbt.id),
@@ -201,7 +232,11 @@ impl ToDB for ToDoSend {
     }
 }
 impl FromDB<ToDoDB> for ToDoSend {
-    fn from_dbt(dbt: &ToDoDB, key: &[u8], provider: &CryptProviders) -> Result<Self, Box<dyn Error>> {
+    fn from_dbt(
+        dbt: &ToDoDB,
+        key: &[u8],
+        provider: &CryptProviders,
+    ) -> Result<Self, Box<dyn Error>> {
         let name = dbt.name.decrypt(key, provider);
         let details = dbt.details.decrypt(key, provider);
         Ok(Self {
