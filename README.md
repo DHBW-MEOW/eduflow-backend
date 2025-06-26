@@ -1,9 +1,23 @@
 # MEOW-backend
 ## Deployment
+The recommended way of starting everything at once is via the [eduflow-deploy](https://github.com/DHBW-MEOW/eduflow-deploy) repository.
+
+If you want to run the backend only, e.g. for testing purposes:
+
 Make sure a data directory exists
 (`mkdir data`)
 
-Run `cargo run` to start the service.
+Run `cargo run` to start the service. (adding the `--release` flag will make it run around 10 times faster)
+
+Alternatively docker / podman can be used (for use with docker please rename the Containerfile to Dockerfile):
+
+Build the container:
+
+`podman build -t eduflow-backend .`
+
+Start the container (make sure a data directory exists):
+
+`podman run -p 3000:3000 -e RUST_LOG=INFO -v ./data:/app/data eduflow-backend`
 
 ## Usage
 The following section has a quick and dirty description on how to communicate with the backend.
