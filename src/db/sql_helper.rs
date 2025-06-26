@@ -15,11 +15,11 @@ impl Clone for SQLValue {
     fn clone(&self) -> Self {
         match self {
             Self::Text(arg0) => Self::Text(arg0.clone()),
-            Self::Int32(arg0) => Self::Int32(arg0.clone()),
+            Self::Int32(arg0) => Self::Int32(*arg0),
             Self::Blob(arg0) => Self::Blob(arg0.clone()),
-            Self::Float64(arg0) => Self::Float64(arg0.clone()),
-            Self::Date(arg0) => Self::Date(arg0.clone()),
-            Self::Bool(arg0) => Self::Bool(arg0.clone()),
+            Self::Float64(arg0) => Self::Float64(*arg0),
+            Self::Date(arg0) => Self::Date(*arg0),
+            Self::Bool(arg0) => Self::Bool(*arg0),
         }
     }
 }
@@ -62,9 +62,9 @@ impl From<bool> for SQLValue {
 macro_rules! db_param_map {
     ( $( $name:ident : $value:expr ),* $(,)? ) => {
         {
-            let mut map: Vec<(String, crate::db::sql_helper::SQLValue)> = Vec::new();
+            let mut map: Vec<(String, $crate::db::sql_helper::SQLValue)> = Vec::new();
             $(
-                let wrapped = crate::db::sql_helper::SQLValue::from($value);
+                let wrapped = $crate::db::sql_helper::SQLValue::from($value);
                 map.push((stringify!($name).to_string(), wrapped));
             )*
             map

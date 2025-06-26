@@ -159,9 +159,11 @@ async fn handle_login<DB: DBInterface + Send + Sync>(
 
     if user.is_err() {
         // User has not been found or an error occurred
-        // prevent username bruteforce by hashing the password anyways, just to waste some time.
+        // prevent timing attacks and hash the password anyways
         // dummy salt, has no meaning
-        let dummy_salt = SaltString::encode_b64("meow_meow".as_bytes()).unwrap();
+        let mut dummy_salt_bytes = [0u8; Salt::RECOMMENDED_LENGTH];
+        OsRng.try_fill_bytes(&mut dummy_salt_bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let dummy_salt = SaltString::encode_b64(&dummy_salt_bytes).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         let _ = Argon2::default().hash_password(request.password.as_bytes(), dummy_salt.as_salt());
         
         warn!("User tried to log in with non existent user {}.\nPotential brute-force attack, watch out for too many of these warnings.", request.username);
@@ -256,7 +258,7 @@ fn split_auth_header(auth_header: &str) -> Result<(i32, String), Box<dyn Error>>
     // split the user id 
     let split: Vec<&str> = token.split_terminator("_").collect();
 
-    let token_id = split.get(0).ok_or("Invalid Token")?;
+    let token_id = split.first().ok_or("Invalid Token")?;
     let token = split.get(1).ok_or("Invalid Token")?;
 
     // convert user id to i32

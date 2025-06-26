@@ -271,7 +271,7 @@ impl DBInterface for SqliteDatabase {
         }).collect();
 
         let entries = stmt.query_map(params.as_slice(), |row| {
-            Ok(T::row_to_struct(row)?)
+            T::row_to_struct(row)
         })?;
 
         let local_tokens: Vec<T> = entries.collect::<Result<Vec<_>, _>>()?;
