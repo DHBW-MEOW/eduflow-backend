@@ -381,13 +381,14 @@ impl DBInterface for SqliteDatabase {
     }
 }
 
+/// converts the SQLValue type to ToSql, depending on its type
 fn sql_value_to_to_sql(param: &SQLValue) -> &dyn ToSql {
     match param {
-        super::sql_helper::SQLValue::Text(s) => s as &dyn ToSql,
-        super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
-        super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
-        super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
-        super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
-        super::sql_helper::SQLValue::Bool(b) => b as &dyn ToSql,
+        super::sql_helper::SQLValue::Text(s) => s,
+        super::sql_helper::SQLValue::Int32(i) => i,
+        super::sql_helper::SQLValue::Blob(items) => items,
+        super::sql_helper::SQLValue::Float64(f) => f,
+        super::sql_helper::SQLValue::Date(d) => d,
+        super::sql_helper::SQLValue::Bool(b) => b,
     }
 }
