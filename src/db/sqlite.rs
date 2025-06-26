@@ -250,14 +250,7 @@ impl DBInterface for SqliteDatabase {
         let conn = self.get_conn()?;
         let sql = T::get_db_insert(params.iter().map(|e| &e.0 ).collect());
         let params: Vec<&dyn ToSql> = params.iter().map(|param| {
-            match &param.1 { // FIXME: put this in method
-                super::sql_helper::SQLValue::Text(s) => s as &dyn ToSql,
-                super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
-                super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
-                super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
-                super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
-                super::sql_helper::SQLValue::Bool(b) => b as &dyn ToSql,
-            }
+            sql_value_to_to_sql(&param.1)
         }).collect();
 
         conn.execute(&sql, params.as_slice())?;
@@ -293,14 +286,7 @@ impl DBInterface for SqliteDatabase {
         let sql = T::get_db_update(params.iter().map(|entry| &entry.0).collect(), where_params.iter().map(|entry| &entry.0).collect());
 
         let params: Vec<&dyn ToSql> = params.iter().chain(where_params.iter()).map(|e| &e.1).map(|param| {
-            match param {
-                super::sql_helper::SQLValue::Text(s) => s as &dyn ToSql,
-                super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
-                super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
-                super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
-                super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
-                super::sql_helper::SQLValue::Bool(b) => b as &dyn ToSql,
-            }
+            sql_value_to_to_sql(param)
         }).collect();
 
         conn.execute(&sql, params.as_slice())?;
@@ -315,18 +301,23 @@ impl DBInterface for SqliteDatabase {
         let sql = T::get_db_delete(params.iter().map(|e| &e.0).collect());
 
         let params: Vec<&dyn ToSql> = params.iter().map(|e| &e.1).map(|param| {
-            match param {
-                super::sql_helper::SQLValue::Text(s) => s as &dyn ToSql,
-                super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
-                super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
-                super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
-                super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
-                super::sql_helper::SQLValue::Bool(b) => b as &dyn ToSql,
-            }
+            sql_value_to_to_sql(param)
         }).collect();
 
         conn.execute(&sql, params.as_slice())?;
 
         Ok(())
+    }
+}
+
+
+fn sql_value_to_to_sql(param: &SQLValue) -> &dyn ToSql{
+    match param {
+        super::sql_helper::SQLValue::Text(s) => s as &dyn ToSql,
+        super::sql_helper::SQLValue::Int32(i) => i as &dyn ToSql,
+        super::sql_helper::SQLValue::Blob(items) => items as &dyn ToSql,
+        super::sql_helper::SQLValue::Float64(f) => f as &dyn ToSql,
+        super::sql_helper::SQLValue::Date(d) => d as &dyn ToSql,
+        super::sql_helper::SQLValue::Bool(b) => b as &dyn ToSql,
     }
 }

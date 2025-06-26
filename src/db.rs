@@ -86,7 +86,7 @@ pub struct LocalTokenRTCrypt {
     pub local_token_crypt: CryptString,
     pub decryptable_by_rt_id: i32,
 }
-/// struct that stores a hash of a remote token, used for confirming that a remote token is valid FIXME: valid_until here?
+/// struct that stores a hash of a remote token, used for confirming that a remote token is valid
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct RemoteToken {

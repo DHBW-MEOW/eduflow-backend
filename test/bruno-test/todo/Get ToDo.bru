@@ -5,12 +5,12 @@ meta {
 }
 
 get {
-  url: http://localhost:3000/data/todo?id=1&completed=false
+  url: http://localhost:3000/data/todo
   body: json
   auth: inherit
 }
 
 params:query {
-  id: 1
-  completed: false
+  ~id: 1
+  ~completed: 0
 }
