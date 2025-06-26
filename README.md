@@ -1,4 +1,4 @@
-# MEOW-backend
+# Eduflow-backend
 ## Deployment
 The recommended way of starting everything at once is via the [eduflow-deploy](https://github.com/DHBW-MEOW/eduflow-deploy) repository.
 
